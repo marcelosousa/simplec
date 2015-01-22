@@ -53,11 +53,11 @@ flow s = do
 
 getPC :: Statement -> PC
 getPC s = case s of
-    Assign pc _ _ -> pc
+    ExprStat pc _ -> pc
     Local  pc _ _ -> pc
     Sequence _ _  -> undefined
     IfThen pc _ _ -> pc
     If pc _ _ _   -> pc
     While pc _ _  -> pc
     Return pc _   -> pc
-    CallS pc _ _  -> pc
+--    CallS pc _ _  -> pc

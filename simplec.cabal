@@ -1,0 +1,17 @@
+Name:		simplec
+Version:	1.0
+Cabal-Version:  >= 1.2
+Author:		Marcelo Sousa
+Category: Languages	
+Synopsis: Subset of C
+Build-Type: Simple
+
+Library
+  Build-Depends: language-c, containers, haskell2010, mtl
+  Extensions:	GeneralizedNewtypeDeriving, MultiParamTypeClasses, FunctionalDependencies, TypeSynonymInstances, FlexibleInstances
+  Hs-Source-Dirs: src/
+  Exposed-modules:
+      Language.SimpleC
+      Language.SimpleC.AST
+      Language.SimpleC.Printer
+      Language.SimpleC.Converter

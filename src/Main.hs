@@ -20,7 +20,11 @@ parseFile :: FilePath -> IO CTranslUnit
 parseFile f  =
   do parse_result <- parseCFile (newGCC "gcc") Nothing [] f
      case parse_result of
-       Left parse_err -> error (show parse_err)
+       Left parse_err -> do 
+           parse_result <- parseCFilePre f
+           case parse_result of
+               Left _ -> error (show parse_err)
+               Right ast -> return ast
        Right ast      -> return ast
 
 pp :: FilePath -> IO ()
@@ -45,16 +49,3 @@ svcomptest = do
 --  tests <- mapM (\f -> do parseFile f >>= \ctu -> let p = translate ctu in return $ TestCase $ assertBool f (success p)) cfs
 --  runTestTT $ TestList tests
 
-{-
-mainMerge :: FilePath -> FilePath -> FilePath -> IO ()
-mainMerge base v1 v2 = do
-  abase <- parseMyFile base
-  av1   <- parseMyFile v1
-  av2   <- parseMyFile v2
-  let cbase = translate abase
-      cv1 = translate av1
-      cv2 = translate av2
-  case mergeProg cbase cv1 cv2 of
-    Nothing -> error "failed to merge"
-    Just cmerge -> print cmerge
--}

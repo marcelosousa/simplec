@@ -41,9 +41,9 @@ instance Convertible (CDeclaration NodeInfo) SC.Decls where
                 Right (i,p) -> SC.FunctionDecl pc i p
       in map (process pc) lst 
 
-instance Convertible (CDeclarator NodeInfo) (Either SC.Ident (SC.Ident, SC.Params)) where
+instance Convertible (CDeclarator NodeInfo) (Either SC.Expression (SC.Ident, SC.Params)) where
 --    translate (CDeclr Nothing  _  _ _ _) = error "cant convert declarators without name"
-    translate (CDeclr (Just i) [] _ _ _) = Left $ translate i
+    translate (CDeclr (Just i) [] _ _ _) = Left $ SC.Ident $ translate i
     translate (CDeclr (Just i) p  _ _ _) = Right (translate i, foldr (\p' r -> (translate p') ++ r) [] p)
     translate _ = error "cant convert declarators"
 

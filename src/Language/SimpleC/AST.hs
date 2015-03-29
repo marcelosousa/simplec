@@ -31,7 +31,7 @@ type Defs  = [Definition]
 
 data Declaration = 
     FunctionDecl PC Ident Params
-  | GlobalDecl PC Ident (Maybe Value)
+  | GlobalDecl PC Expression (Maybe Value)
   deriving (Show,Eq,Ord)
 
 type Params = [Parameter]

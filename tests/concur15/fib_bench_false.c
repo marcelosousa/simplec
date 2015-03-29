@@ -1,8 +1,8 @@
 /* Adapted from: https://svn.sosy-lab.org/software/sv-benchmarks/trunk/c/pthread/fib_bench_false-unreach-call.c */
 
-#include <assert.h>
+// #include <assert.h>
 
-#include <pthread.h>
+#include "pthread.h"
 
 volatile int i=1, j=1;
 
@@ -12,9 +12,12 @@ void *
 t1(void* arg)
 {
   int k = 0;
-
-  for (k = 0; k < NUM; k++)
-    i+=j;
+  int l = 0;
+  
+  for (k = 0; k < NUM; k++){
+      l = i;
+      i = l + j;
+  }
 
   pthread_exit(NULL);
 }
@@ -23,9 +26,12 @@ void *
 t2(void* arg)
 {
   int k = 0;
-
-  for (k = 0; k < NUM; k++)
-    j+=i;
+  int l = 0;
+  
+  for (k = 0; k < NUM; k++){
+      l = j;
+      j = l + i;
+  }
 
   pthread_exit(NULL);
 }

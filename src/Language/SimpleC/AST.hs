@@ -43,19 +43,20 @@ data Definition =
   deriving (Eq,Ord)
 
 --type Statements = [(PC, Statement)]
-type Statement = AnnStatement PC
+type Statement = [AnnStatement PC]
 
 data AnnStatement a = 
     ExprStat a Expression                               -- expression statement
-  | Local  a Expression (Maybe Expression)              -- decl x
-  | Sequence (AnnStatement a) (AnnStatement a)          -- S1;S2;
-  | IfThen a Expression (AnnStatement a)                -- if expr then { S1; }
-  | If a Expression (AnnStatement a) (AnnStatement a)   -- if expr then { S1; } else { S2; }
-  | While a Expression (AnnStatement a)                 -- while expr { S; }
-  | For a Expression Expression Expression (AnnStatement a) -- for 
+  | Local  a Expression (Maybe Expression)              -- decl x  int x = 5; 
+  -- Local (Ident "x") (Just (ValueInt 5))
+--  | Sequence (AnnStatement a) (AnnStatement a)          -- S1;S2;
+  | IfThen a Expression Statement                -- if expr then { S1; }
+  | If a Expression Statement Statement   -- if expr then { S1; } else { S2; }
+  | While a Expression Statement                 -- while expr { S; }
+  | For a Expression Expression Expression Statement -- for 
   | Return a (Maybe Expression)                         -- return expr
 --  | CallS a Ident [Expression]                          -- call fname [arguments]
-  | Label a Ident (AnnStatement a)                      -- label: statement
+  | Label a Ident Statement                      -- label: statement
   | Goto  a Ident                                       -- goto: label
   | Skip 
   deriving (Ord)
@@ -63,7 +64,7 @@ data AnnStatement a =
 instance Eq (AnnStatement a) where
     (==) (ExprStat _ e1) (ExprStat _ e2) = e1 == e2
     (==) (Local _ i1 e1)  (Local _ i2 e2)  = i1 == i2 && e1 == e2
-    (==) (Sequence s11 s21) (Sequence s12 s22) = s11 == s12 && s21 == s22
+--    (==) (Sequence s11 s21) (Sequence s12 s22) = s11 == s12 && s21 == s22
     (==) (IfThen _ c1 s1) (IfThen _ c2 s2) = c1 == c2 && s1 == s2
     (==) (If _ c1 st1 se1) (If _ c2 st2 se2) = c1 == c2 && st1 == st2 && se1 == se2
     (==) (While _ c1 s1) (While _ c2 s2) = c1 == c2 && s1 == s2
@@ -80,7 +81,7 @@ data Expression =
   | UnaryOp UOpCode Expression            -- UOP expr
   | Const Value                           -- value
   | Ident Ident                           -- x
-  | Index Expression Expression
+  | Index Expression Expression            -- x[10]
   | Assign AssignOp Expression Expression         -- expression assignment
   | SizeOf 
   | Cast Expression

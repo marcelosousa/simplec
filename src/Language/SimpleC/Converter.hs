@@ -95,11 +95,11 @@ instance Convertible (CFunctionDef NodeInfo) SC.Definition where
               in SC.FunctionDef pc name params stats
 
 instance Convertible (CStatement NodeInfo) SC.Statement where
-    translate (CReturn expr n) = SC.Return (translate n) $ fmap translate expr
-    translate (CExpr   Nothing _) = SC.Skip
+    translate (CReturn expr n) = [SC.Return (translate n) $ fmap translate expr]
+    translate (CExpr   Nothing _) = [SC.Skip]
     translate (CExpr   (Just expr) n) = 
         let e = translate expr
-        in e `seq` SC.ExprStat (translate n) e
+        in e `seq` [SC.ExprStat (translate n) e]
 --        CAssign _ lhs rhs n -> 
 --          let lhsExpr = translate lhs
 --              -- varName = getIdent lhs
@@ -122,38 +122,38 @@ instance Convertible (CStatement NodeInfo) SC.Statement where
             sthen = translate thenStat
             pc = translate n
         in case melseStat of
-            Nothing -> SC.IfThen pc expr sthen
+            Nothing -> [SC.IfThen pc expr sthen]
             Just elseStat -> 
               let selse = translate elseStat
-              in SC.If pc expr sthen selse
+              in [SC.If pc expr sthen selse]
     translate (CWhile condExpr bodyStat False n) = 
         let expr = translate condExpr
             sbody = translate bodyStat
             pc = translate n
-        in SC.While pc expr sbody     
+        in [SC.While pc expr sbody]
     translate (CFor (Left (Just c1)) (Just c2) (Just c3) s n) =
        let e1 = translate c1
            e2 = translate c2
            e3 = translate c3
            sbody = translate s
            pc = translate n
-       in SC.For pc e1 e2 e3 sbody
+       in [SC.For pc e1 e2 e3 sbody]
     translate (CLabel ident stat _ n) = 
         let i = translate ident
             s = translate stat
             pc = translate n
-        in SC.Label pc i s
+        in [SC.Label pc i s]
     translate (CGoto ident n) = 
         let i = translate ident
             pc = translate n
-        in SC.Goto pc i
+        in [SC.Goto pc i]
     translate s = error $ "cant convert statement " ++ show s
     
 instance Convertible [CCompoundBlockItem NodeInfo] SC.Statement where
-    translate [] = SC.Skip -- error "empty compound block"
+    translate [] = [SC.Skip] -- error "empty compound block"
     translate [s] = translate s
-    translate (s:ss) = SC.Sequence (translate s) (translate ss)
-    -- foldr (M.union . translate) M.empty
+    translate (s:ss) = --SC.Sequence (translate s) (translate ss)
+     foldr (\s s' -> translate s ++ s') [] (s:ss)
 
 instance Convertible (CCompoundBlockItem NodeInfo) SC.Statement where
     translate (CBlockStmt stat) = translate stat
@@ -161,7 +161,7 @@ instance Convertible (CCompoundBlockItem NodeInfo) SC.Statement where
         let pc = translate n
             lst = map getLocal decl
             lst' = map (\(v,e) -> SC.Local pc v e) lst
-        in foldr (\r s -> SC.Sequence r s) (head lst') (tail lst')
+        in lst' --foldr (\r s -> SC.Sequence r s) (head lst') (tail lst')
     translate _ = error "cant convert CCompoundBlockItem"
 
 instance Identifiable (CExpression NodeInfo) where
@@ -169,10 +169,16 @@ instance Identifiable (CExpression NodeInfo) where
     getIdent _ = error "cant get ident of CExpression"
 
 --getLocal :: CDeclaration NodeInfo -> (SC.Expression, Maybe SC.Expression, Int)
+getLocal (Just (CDeclr (Just i) [CArrDeclr _ (CArrSize _ (CConst c)) _] _ _ _),Nothing,_) = 
+    (SC.Index (SC.Ident $ translate i) (SC.Const $ translate c), Nothing)
+getLocal (Just (CDeclr (Just i) [CArrDeclr _ (CArrSize _ _) _] _ _ _),Nothing,_) = 
+    error $ "cant declare an array with non-constant size"
 getLocal (Just (CDeclr (Just i) _ _ _ _),Nothing,_) = (SC.Ident $ translate i, Nothing)
-getLocal (Just (CDeclr (Just i) _ _ _ _),Just (CInitExpr expr _),_) = 
+getLocal (Just (CDeclr (Just i) [] _ _ _),Just (CInitExpr expr _),_) = 
     (SC.Ident $ translate i, Just $ translate expr)
-
+getLocal (Just (CDeclr (Just i) [CArrDeclr _ (CArrSize _ (CConst c)) _] _ _ _),Just (CInitExpr expr _),_) = 
+    (SC.Index (SC.Ident $ translate i) (SC.Const $ translate c), Just $ translate expr)
+getLocal s = error $ "can't convert: " ++ show s
     
 instance Convertible (CExpression NodeInfo) SC.Expression where
     translate expr = case expr of

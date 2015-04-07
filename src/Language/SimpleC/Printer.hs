@@ -13,17 +13,17 @@ instance Show Definition where
       fn ++ "(" ++ show params ++ "){\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] stat ++ "\n}"
 
 instance Show a => Show (AnnStatement a) where
-    show (ExprStat _ e) = show e ++ ";"
-    show (Local  _ var Nothing) = show var ++ ";\n" 
-    show (Local  _ var (Just v)) = show var ++ " := " ++ show v ++ ";\n"
+    show (ExprStat pc e) = show pc ++ "@"++show e ++ ";"
+    show (Local  pc var Nothing) = show pc ++ "@"++show var ++ ";\n" 
+    show (Local  pc var (Just v)) = show pc ++ "@"++show var ++ " := " ++ show v ++ ";\n"
 --    show (Sequence s1 s2) = show s1 ++ "\n" ++ show s2
-    show (IfThen _ c t) = "if(" ++ show c ++ "){\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] t ++ "\n}"
-    show (If _ c t e) =  "if(" ++ show c ++ "){\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] t ++ "\n}else{\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] e ++ "\n}"
-    show (While _ c s) = "while(" ++ show c ++ "){\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] s ++ "\n}"
-    show (For _ c1 c2 c3 s) = "for( " ++ show c1 ++ "; " ++ show c2 ++ ";" ++ show c3 ++ "){\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] s ++ "\n}"
-    show (Return _ e) = "return " ++ show e ++ ";"
+    show (IfThen pc c t) = show pc ++ "@if(" ++ show c ++ "){\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] t ++ "\n}"
+    show (If pc c t e) =  show pc ++ "@if(" ++ show c ++ "){\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] t ++ "\n}else{\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] e ++ "\n}"
+    show (While pc c s) = show pc ++ "@while(" ++ show c ++ "){\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] s ++ "\n}"
+    show (For pc c1 c2 c3 s) = show pc ++ "@for( " ++ show c1 ++ "; " ++ show c2 ++ ";" ++ show c3 ++ "){\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] s ++ "\n}"
+    show (Return pc e) = show pc ++ "@return " ++ show e ++ ";"
 --    show (CallS _ fn args) = fn ++ "(" ++ show args ++ ");"
-    show (Label _ var stat) = show var ++ ": " ++ foldr (\s r -> show s ++ "\n" ++ r) [] stat
-    show (Goto _ var) = "goto " ++ show var++";"
+    show (Label pc var stat) = show pc++"@"++show var ++ ": " ++ foldr (\s r -> show s ++ "\n" ++ r) [] stat
+    show (Goto pc var) = show pc ++ "@goto " ++ show var++";"
     show (Skip) = "skip;"
     

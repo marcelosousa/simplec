@@ -99,7 +99,9 @@ instance Convertible (CStatement NodeInfo) SC.Statement where
     translate (CExpr   Nothing _) = [SC.Skip]
     translate (CExpr   (Just expr) n) = 
         let e = translate expr
-        in e `seq` [SC.ExprStat (translate n) e]
+        in case e of 
+          SC.Ident var -> [SC.ExprStat (translate n) (SC.Assign CAssignOp (SC.Ident var) (SC.Const $ SC.IntValue 0))]
+          _ -> [SC.ExprStat (translate n) e]
 --        CAssign _ lhs rhs n -> 
 --          let lhsExpr = translate lhs
 --              -- varName = getIdent lhs

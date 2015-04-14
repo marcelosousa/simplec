@@ -17,8 +17,8 @@ instance Show a => Show (AnnStatement a) where
     show (Local  pc var Nothing) = show pc ++ "@"++show var ++ ";\n" 
     show (Local  pc var (Just v)) = show pc ++ "@"++show var ++ " := " ++ show v ++ ";\n"
 --    show (Sequence s1 s2) = show s1 ++ "\n" ++ show s2
-    show (IfThen pc c t) = show pc ++ "@if(" ++ show c ++ "){\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] t ++ "\n}"
-    show (If pc c t e) =  show pc ++ "@if(" ++ show c ++ "){\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] t ++ "\n}else{\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] e ++ "\n}"
+    show (IfThen pc c t) = show pc ++ "@if(" ++ show c ++ "){\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] t ++ "}"
+    show (If pc c t e) =  show pc ++ "@if(" ++ show c ++ "){\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] t ++ "}else{\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] e ++ "}"
     show (While pc c s) = show pc ++ "@while(" ++ show c ++ "){\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] s ++ "\n}"
     show (For pc c1 c2 c3 s) = show pc ++ "@for( " ++ show c1 ++ "; " ++ show c2 ++ ";" ++ show c3 ++ "){\n" ++ foldr (\s r -> show s ++ "\n" ++ r) [] s ++ "\n}"
     show (Return pc e) = show pc ++ "@return " ++ show e ++ ";"

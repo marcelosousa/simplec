@@ -25,6 +25,7 @@ parseFile f  =
 
 extract :: FilePath -> IO SC.Program
 extract f = do ctu <- parseFile f
+--               print $ ctu
                return $ translate ctu
 
 success :: SC.Program -> Bool

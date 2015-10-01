@@ -44,6 +44,7 @@ instance Convertible (CDeclaration NodeInfo) SC.Decls where
 instance Convertible (CDeclarator NodeInfo) (Either SC.Expression (SC.Ident, SC.Params)) where
 --    translate (CDeclr Nothing  _  _ _ _) = error "cant convert declarators without name"
     translate (CDeclr (Just i) [] _ _ _) = Left $ SC.Ident $ translate i
+    translate (CDeclr (Just i) [CArrDeclr _ (CArrSize _ (CConst c)) _] _ _ _) = Left $ SC.Ident $ translate i 
     translate (CDeclr (Just i) p  _ _ _) = Right (translate i, foldr (\p' r -> (translate p') ++ r) [] p)
     translate _ = error "cant convert declarators"
 
@@ -52,13 +53,18 @@ instance Convertible (CDerivedDeclarator NodeInfo) SC.Params where
     translate (CFunDeclr (Right (is',_)) _ _) = map (SC.Param . getIdent) is'
     translate r = [] --error $ "FAIL: " ++ show k
     
-instance Convertible (CInitializer NodeInfo) SC.Value where
+instance Convertible (CInitializer NodeInfo) SC.Expression where
     translate (CInitExpr expr _) = getValue expr
     translate _ = error "cant convert CInitializer"
 
-getValue :: (CExpression NodeInfo) -> SC.Value
-getValue (CConst (CIntConst (CInteger i _ _) _)) = SC.IntValue i
-getValue (CConst (CFloatConst (CFloat i) _)) = SC.FloatValue $ read i
+getValue :: (CExpression NodeInfo) -> SC.Expression
+getValue (CConst (CIntConst (CInteger i _ _) _)) = SC.Const $ SC.IntValue i
+getValue (CConst (CFloatConst (CFloat i) _)) = SC.Const $ SC.FloatValue $ read i
+getValue (CCall fname args n) =
+  let fName = getIdent fname
+      asExpr = map translate args
+      pc = translate n
+  in SC.Call fName asExpr
 getValue c = error $  "cant get value " ++ show c
     
 instance Convertible NodeInfo SC.PC where

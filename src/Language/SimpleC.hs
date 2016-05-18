@@ -9,6 +9,7 @@ import Language.C.Data.Ident
 
 import qualified Language.SimpleC.AST as SC
 import Language.SimpleC.Converter
+import qualified Language.SimpleC.SConverter as SCon
 import Language.SimpleC.Printer
 --import Language.SimpleC.Flow
 
@@ -27,6 +28,10 @@ extract :: FilePath -> IO SC.Program
 extract f = do ctu <- parseFile f
 --               print $ ctu
                return $ translate ctu
+
+test :: FilePath -> IO ()
+test f = do ctu <- parseFile f
+            print ctu 
 
 success :: SC.Program -> Bool
 success (SC.Program _) = True

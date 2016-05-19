@@ -118,7 +118,7 @@ instance Convertible (CExpression NodeInfo) (CExpression ()) where
 		mThen = translate mThenExpr
 		_else = translate elseExpr
 	    in CCond cond mThen _else ()
-	CBinary cBinaryOp lhsExpr rhsExpr n 
+	CBinary cBinaryOp lhsExpr rhsExpr n -> 
 	    let lhs = translate lhsExpr
 		rhs = translate rhsExpr
 	    in CBinary cBinaryOp lhs rhs ()
@@ -140,7 +140,7 @@ instance Convertible (CExpression NodeInfo) (CExpression ()) where
 	    in CAlignofExpr sCExpr ()	 
 	CAlignofType cDecl n ->  
 	    let sCDecl = translate cDecl
-	    in CAlignOfType sCDecl ()	 
+	    in CAlignofType sCDecl ()	 
 	CComplexReal cExpr n ->  
 	    let sCExpr = translate cExpr
 	    in CComplexReal sCExpr ()	 
@@ -151,9 +151,9 @@ instance Convertible (CExpression NodeInfo) (CExpression ()) where
 	    let lhs = translate lhsExpr
 		rhs = translate rhsExpr
 	    in CIndex lhs rhs ()
-	CCall fnExpr argsExpr n	 
+	CCall fnExpr argsExpr n	-> 
 	    let fn = translate fnExpr
-		rhs = translate argsExpr
+		args = translate argsExpr
 	    in CCall fn args ()
 	CMember cExpr ident bool n ->
 	    let expr = translate cExpr 
@@ -170,7 +170,7 @@ instance Convertible (CExpression NodeInfo) (CExpression ()) where
 	CLabAddrExpr ident n -> CLabAddrExpr ident ()	
 	CBuiltinExpr cBuiltinThing ->
 	    let builtin = translate cBuiltinThing 
-	    in CBuiltinExpr builtin ()
+	    in CBuiltinExpr builtin 
 
 -- | Convert the 'C Attribute'
 instance Convertible (CAttribute NodeInfo) (CAttribute ()) where
@@ -216,9 +216,80 @@ instance Convertible (CPartDesignator NodeInfo) (CPartDesignator ()) where
 	CRangeDesig cExpr cExpr' n ->
 	     CRangeDesig (translate cExpr) (translate cExpr') () 
 
+-- | Convert the 'C Constant'
+instance Convertible (CConstant NodeInfo) (CConstant ()) where
+    translate cConst = case cConst of
+	CIntConst cInteger n -> CIntConst cInteger () 
+	CCharConst cChar n   -> CCharConst cChar ()	 
+	CFloatConst cFloat n -> CFloatConst cFloat () 	 
+	CStrConst cString n  -> CStrConst cString ()
+
+-- | Convert the 'C Statement'
+instance Convertible (CStatement NodeInfo) (CStatement ()) where
+    translate cStat = case cStat of
+	-- An (attributed) label followed by a statement
+	CLabel ident cStat lCAttr n ->
+	    let stat = translate cStat
+		lcAttr = translate lCAttr
+	    in CLabel ident stat lcAttr ()	
+	-- A statement of the form case expr : stmt
+	CCase (CExpression a) (CStatement a) a	
+	-- A case range of the form case lower ... upper : stmt
+	CCases (CExpression a) (CExpression a) (CStatement a) a	
+	-- The default case default : stmt
+	CDefault (CStatement a) a	
+	-- A simple statement, that is in C: evaluating an expression with side-effects and discarding the result.
+	CExpr (Maybe (CExpression a)) a	
+	-- Compound statement CCompound localLabels blockItems at
+	CCompound [Ident] [CCompoundBlockItem a] a	
+	-- Conditional statement CIf ifExpr thenStmt maybeElseStmt at
+	CIf (CExpression a) (CStatement a) (Maybe (CStatement a)) a	
+	-- Switch statement CSwitch selectorExpr switchStmt, 
+	-- where switchStmt usually includes case, break and default statements
+	CSwitch (CExpression a) (CStatement a) a	
+	-- While or do-while statement CWhile guard stmt isDoWhile at
+	CWhile (CExpression a) (CStatement a) Bool a	
+	-- For statement CFor init expr-2 expr-3 stmt,
+	-- where init is either a declaration or initializing expression
+	CFor (Either (Maybe (CExpression a)) (CDeclaration a)) (Maybe (CExpression a)) (Maybe (CExpression a)) (CStatement a) a	
+	-- Goto statement CGoto label
+	CGoto ident n -> CGoto ident ()	
+	-- Computed goto CGotoPtr labelExpr
+	CGotoPtr cExpr n -> CGotoPtr (translate cExpr) ()
+	-- Continue statement
+	CCont n -> CCont ()
+	-- Break statement
+	CBreak n -> CBreak ()	
+	-- Return statement CReturn returnExpr
+	CReturn mCExpr n -> CReturn (translate mCExpr) ()
+	-- Assembly statement	
+	CAsm (CAssemblyStatement a) a 
+
+-- | Convert the 'C BuiltinThing'
+instance Convertible (CBuiltinThing NodeInfo) (CBuiltinThing ()) where
+    translate cBuiltinThing = case cBuiltinThing of
+	CBuiltinVaArg cExpr cDecl n ->
+	    let expr = translate cExpr
+		decl = translate cDecl
+	    in CBuiltinVaArg expr decl ()	
+	CBuiltinOffsetOf cDecl lcPartDes n ->
+	    let decl = translate cDecl
+		lpartDes = translate lcPartDes
+	    in CBuiltinOffsetOf decl lpartDes () 
+	CBuiltinTypesCompatible cDecl _cDecl n ->
+	    let decl = translate cDecl
+		_decl = translate _cDecl
+	    in CBuiltinTypesCompatible decl _decl () 
+
 -- | Convert the 'C Function Definition'
 instance Convertible (CFunctionDef NodeInfo) (CFunctionDef ()) where
-    translate = undefined
+    translate cFun = case cFun of
+	CFunDef lCDeclSpec cDeclr lCDecl cStat n ->
+	    let lDeclSpec = translate lCDeclSpec
+		declr = translate cDeclr
+		lDecl = translate lCDecl
+		stat = translate cStat
+	    in CFunDef lDeclSpec declr lDecl stat ()
 
 -- | Convert the 'C String Literal'
 instance Convertible (CStringLiteral NodeInfo) (CStringLiteral ()) where

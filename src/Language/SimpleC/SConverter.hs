@@ -233,25 +233,55 @@ instance Convertible (CStatement NodeInfo) (CStatement ()) where
 		lcAttr = translate lCAttr
 	    in CLabel ident stat lcAttr ()	
 	-- A statement of the form case expr : stmt
-	CCase (CExpression a) (CStatement a) a	
+	CCase cExpr cStat n -> 
+	    let expr = translate cExpr
+		stat = translate cStat
+	    in CCase expr stat ()
 	-- A case range of the form case lower ... upper : stmt
-	CCases (CExpression a) (CExpression a) (CStatement a) a	
+	CCases cExpr _cExpr cStat n ->
+	    let expr = translate cExpr
+		_expr = translate _cExpr
+		stat = translate cStat
+	    in CCases expr _expr stat ()	
 	-- The default case default : stmt
-	CDefault (CStatement a) a	
-	-- A simple statement, that is in C: evaluating an expression with side-effects and discarding the result.
-	CExpr (Maybe (CExpression a)) a	
+	CDefault cStat n ->
+	    let stat = translate cStat
+	    in CDefault stat ()
+	-- A simple statement, that is in C:
+	-- evaluating an expression with side-effects
+ 	-- and discarding the result
+	CExpr mCExpr n ->
+	    let cExpr = translate mCExpr
+	    in CExpr cExpr ()
 	-- Compound statement CCompound localLabels blockItems at
-	CCompound [Ident] [CCompoundBlockItem a] a	
+	CCompound idents cCompoundBlockItem n ->
+	    let compoundBlockItem = translate cCompoundBlockItem
+	    in CCompound idents compoundBlockItem ()
 	-- Conditional statement CIf ifExpr thenStmt maybeElseStmt at
-	CIf (CExpression a) (CStatement a) (Maybe (CStatement a)) a	
+	CIf cIfExpr cThenStmt maybecElseStmt n ->
+	    let ifExpr = translate cIfExpr
+		thenStmt = translate cThenStmt
+		mElseStmt = translate maybecElseStmt 
+	    in CIf ifExpr thenStmt mElseStmt ()
 	-- Switch statement CSwitch selectorExpr switchStmt, 
 	-- where switchStmt usually includes case, break and default statements
-	CSwitch (CExpression a) (CStatement a) a	
+	CSwitch cExpr cStat n ->
+	    let expr = translate cExpr
+		stat = translate cStat
+	    in CSwitch expr stat ()
 	-- While or do-while statement CWhile guard stmt isDoWhile at
-	CWhile (CExpression a) (CStatement a) Bool a	
+	CWhile cExpr cStat isDoWhile n ->
+	    let guard = translate cExpr
+		stmt = translate cStat
+	    in CWhile guard stmt isDoWhile () 
 	-- For statement CFor init expr-2 expr-3 stmt,
 	-- where init is either a declaration or initializing expression
-	CFor (Either (Maybe (CExpression a)) (CDeclaration a)) (Maybe (CExpression a)) (Maybe (CExpression a)) (CStatement a) a	
+	CFor cInit cExpr _cExpr cStat n -> 
+	    let init = translate cInit 
+		expr = translate cExpr 
+		_expr = translate _cExpr 
+		stat = translate cStat 
+	    in CFor init expr _expr stat () 
 	-- Goto statement CGoto label
 	CGoto ident n -> CGoto ident ()	
 	-- Computed goto CGotoPtr labelExpr
@@ -263,7 +293,36 @@ instance Convertible (CStatement NodeInfo) (CStatement ()) where
 	-- Return statement CReturn returnExpr
 	CReturn mCExpr n -> CReturn (translate mCExpr) ()
 	-- Assembly statement	
-	CAsm (CAssemblyStatement a) a 
+	CAsm cAsmStmt n -> CAsm (translate cAsmStmt) () 
+
+-- | Convert the 'C AssemblyStatement'
+instance Convertible (CAssemblyStatement NodeInfo) (CAssemblyStatement ()) where
+    translate cAsmStmt = case cAsmStmt of
+	CAsmStmt mCTyQual cStrLit lCAsmOp _lCAsmOp lCStrLit n ->
+	    let mTyQual = translate mCTyQual
+		strLit = translate cStrLit
+		lAsmOp = translate lCAsmOp
+		_lAsmOp = translate _lCAsmOp
+		lStrLit = translate lCStrLit
+	    in CAsmStmt mTyQual strLit lAsmOp _lAsmOp lStrLit ()
+
+-- | Convert the 'C AssemblyOperand'
+instance Convertible (CAssemblyOperand NodeInfo) (CAssemblyOperand ()) where
+    translate cAsmOp = case cAsmOp of
+	CAsmOperand mIdent cStrLit cExpr n ->
+	    let strLit = translate cStrLit
+		expr = translate cExpr
+	    in CAsmOperand mIdent strLit expr ()
+
+-- | Convert the 'C CompoundBlockItem'
+instance Convertible (CCompoundBlockItem NodeInfo) (CCompoundBlockItem ()) where
+    translate cCompound = case cCompound of
+	-- A statement
+	CBlockStmt cStat -> CBlockStmt (translate cStat)
+	-- A local declaration
+	CBlockDecl cDecl -> CBlockDecl (translate cDecl)
+	-- A nested function (GNU C)
+	CNestedFunDef cFunDef -> CNestedFunDef (translate cFunDef)
 
 -- | Convert the 'C BuiltinThing'
 instance Convertible (CBuiltinThing NodeInfo) (CBuiltinThing ()) where

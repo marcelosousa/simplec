@@ -8,7 +8,9 @@ import Data.Array
 import Language.C.Syntax.AST
 import Language.C.Data.Node (NodeInfo)
 
-type Ident = String
+type Ident = Int
+
+--type Ident = String
 data Value = 
     IntValue Integer
   | FloatValue Float
@@ -24,12 +26,36 @@ type At = NodeInfo
 data Type = IntType
   deriving (Show,Eq,Ord)
 
-data Program = Program (Decls, Defs)
-  deriving (Eq,Ord)
-        
-type Decls = [Declaration]
-type Defs  = [Definition]
+-- | C Program 
+-- A C Program contains declarations
+-- which can be type declarations,
+-- initialization of global variables
+-- and definition of functions. 
+data Program = Prog {
+    decls   :: !Declarations 
+  , defs    :: !Definitions
+  , asm_ext :: !AsmExt 
+  } 
 
+data ProgramData = ProgData {
+    code :: !Program
+  , symbols :: !Symbols
+  , cfgs :: !CFG
+  }
+
+data Symbols = SymInfo
+data CFG = CFG
+
+-- | AsmExt : Not sure the use of this attr
+type AsmExt = [CStringLiteral At] 
+-- Declarations can be initialized or not
+type Declarations = [Declaration]
+type Definitions = [CFunctionDef At]
+
+type DeclElem = (Maybe (CDeclarator At), Maybe (CInitializer At), Maybe (CExpression At))
+data Declaration = Decl [CDeclarationSpecifier At] DeclElem At	
+
+{-
 data Declaration = 
     FunctionDecl PC Ident Params
   | GlobalDecl PC Expression (Maybe Expression)

@@ -8,9 +8,10 @@ import Language.C.System.GCC  -- preprocessor used
 import Language.C.Data.Ident
 
 import qualified Language.SimpleC.AST as SC
-import Language.SimpleC.Converter
+--import Language.SimpleC.Converter
 import qualified Language.SimpleC.SConverter as SCon
-import Language.SimpleC.Printer
+import qualified Language.SimpleC.FConverter as FCon
+--import Language.SimpleC.Printer
 --import Language.SimpleC.Flow
 
 parseFile :: FilePath -> IO CTranslUnit
@@ -24,15 +25,15 @@ parseFile f  =
                Right ast -> return ast
        Right ast      -> return ast
 
-extract :: FilePath -> IO SC.Program
-extract f = do ctu <- parseFile f
---               print $ ctu
-               return $ translate ctu
+--extract :: FilePath -> IO SC.Program
+--extract f = do ctu <- parseFile f
+----               print $ ctu
+--               return $ translate ctu
 
-test :: FilePath -> IO ()
+--test :: FilePath -> IO a
 test f = do ctu <- parseFile f
-            print $ SCon.translate ctu 
+            return $ FCon.translate ctu 
 
-success :: SC.Program -> Bool
-success (SC.Program _) = True
+--success :: SC.Program -> Bool
+--success (SC.Program _) = True
 

@@ -31,7 +31,7 @@ extract f = do ctu <- parseFile f
 
 test :: FilePath -> IO ()
 test f = do ctu <- parseFile f
-            print $ pretty $ SCon.translate ctu 
+            print $ SCon.translate ctu 
 
 success :: SC.Program -> Bool
 success (SC.Program _) = True

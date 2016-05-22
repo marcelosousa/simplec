@@ -1,30 +1,22 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Language.SimpleC.AST where
+module Language.SimpleC.FAST where
 
 import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Array
 import Language.C.Syntax.AST
 import Language.C.Data.Node (NodeInfo)
+import Language.C.Data.Ident
 
-type Ident = Int
-
---type Ident = String
-data Value = 
-    IntValue Integer
-  | FloatValue Float
-  | StrValue String
-  | CharValue Char
-  deriving (Show,Eq,Ord)
+-- Symbol Id
+type SymId = Int
    
 type OpCode  = CBinaryOp
 type UOpCode = CUnaryOp
 type AssignOp = CAssignOp
 type At = NodeInfo 
 
-data Type = IntType
-  deriving (Show,Eq,Ord)
 
 -- | C Program 
 -- A C Program contains declarations
@@ -53,66 +45,47 @@ type Declarations = [Declaration]
 type Definitions = [CFunctionDef At]
 
 type DeclElem = (Maybe (CDeclarator At), Maybe (CInitializer At), Maybe (CExpression At))
-data Declaration = Decl [CDeclarationSpecifier At] DeclElem At	
+data Declaration = Decl (DeclarationSpecifier At) DeclElem At	
+  deriving Show
 
-{-
-data Declaration = 
-    FunctionDecl PC Ident Params
-  | GlobalDecl PC Expression (Maybe Expression)
-  deriving (Show,Eq,Ord)
+data DeclarationSpecifier a
+  = DeclSpec StorageSpecifier [CTypeQualifier a] [CTypeSpecifier a] 
+  deriving Show
 
-type Params = [Parameter]
-data Parameter = Param Ident
-  deriving (Show,Eq,Ord)
- 
-data Definition = 
-    FunctionDef PC Ident Params Statement
-  deriving (Eq,Ord)
+-- ^ storage-class specifier or typedef
+data StorageSpecifier 
+  = Auto     -- ^ auto (default)
+  | Register -- ^ register
+  | Static   -- ^ static
+  | Extern   -- ^ extern
+  | Typedef  -- ^ typedef
+  | Thread   -- ^ GNUC thread local storage
+  deriving Show
 
---type Statements = [(PC, Statement)]
-type Statement = [AnnStatement PC]
+-- ^ type name
+data TypeSpecifier a
+  = VoidType    
+  | CharType    
+  | ShortType   
+  | IntType     
+  | LongType    
+  | FloatType   
+  | DoubleType  
+  | SignedType  
+  | UnsigType   
+  | BoolType    
+  | ComplexType 
+  | Int128Type  
+  | SUType      (CStructureUnion a) a      -- ^ Struct or Union specifier
+  | EnumType    (CEnumeration a)    a      -- ^ Enumeration specifier
+  | TypeDef     Ident        a      -- ^ Typedef name
+  | TypeOfExpr  (CExpression a)  a  -- ^ @typeof(expr)@
+  | TypeOfType  (CDeclaration a) a  -- ^ @typeof(type)@
 
-data AnnStatement a = 
-    ExprStat a Expression                               -- expression statement
-  | Local  a Expression (Maybe Expression)              -- decl x  int x = 5; 
-  -- Local (Ident "x") (Just (ValueInt 5))
---  | Sequence (AnnStatement a) (AnnStatement a)          -- S1;S2;
-  | IfThen a Expression Statement                -- if expr then { S1; }
-  | If a Expression Statement Statement   -- if expr then { S1; } else { S2; }
-  | While a Expression Statement                 -- while expr { S; }
-  | For a Expression Expression Expression Statement -- for 
-  | Return a (Maybe Expression)                         -- return expr
---  | CallS a Ident [Expression]                          -- call fname [arguments]
-  | Label a Ident Statement                      -- label: statement
-  | Goto  a Ident                                       -- goto: label
-  | Skip 
-  deriving (Ord)
-
-instance Eq (AnnStatement a) where
-    (==) (ExprStat _ e1) (ExprStat _ e2) = e1 == e2
-    (==) (Local _ i1 e1)  (Local _ i2 e2)  = i1 == i2 && e1 == e2
---    (==) (Sequence s11 s21) (Sequence s12 s22) = s11 == s12 && s21 == s22
-    (==) (IfThen _ c1 s1) (IfThen _ c2 s2) = c1 == c2 && s1 == s2
-    (==) (If _ c1 st1 se1) (If _ c2 st2 se2) = c1 == c2 && st1 == st2 && se1 == se2
-    (==) (While _ c1 s1) (While _ c2 s2) = c1 == c2 && s1 == s2
-    (==) (For _ c1 c2 c3 s1) (For _ c1' c2' c3' s2) = c1 == c1' && c2 == c2' && c3 == c3' && s1 == s2
-    (==) (Return _ e1) (Return _ e2) = e1 == e2
---    (==) (CallS _ fn1 ps1) (CallS _ fn2 ps2) = fn1 == fn2 && ps1 == ps2
-    (==) (Label _ i s) (Label _ j r) = i == j && s == r
-    (==) (Goto _ i) (Goto _ j) = i == j
-    (==) _ _ = False
-    
-data Expression = 
-    Call Ident [Expression]               -- call fname [arguments]
-  | BinOp OpCode Expression Expression    -- expr BINOP expr
-  | UnaryOp UOpCode Expression            -- UOP expr
-  | Const Value                           -- value
-  | Ident Ident                           -- x
-  | Index Expression Expression            -- x[10]
-  | Assign AssignOp Expression Expression         -- expression assignment
-  | SizeOf 
-  | Cast Expression
-  | Member Expression Ident               -- expr -> ident
-  | Condition Expression (Maybe Expression) Expression -- cnd ? e1 : e2
-  deriving (Show,Eq,Ord)
- -} 
+-- ^ type qualifier
+data TypeQualifier a 
+  = ConstQual 
+  | VolatQual 
+  | RestrQual 
+  | InlineQual
+  | CAttrQual  (CAttribute a)

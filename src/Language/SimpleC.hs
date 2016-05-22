@@ -7,12 +7,11 @@ import Language.C
 import Language.C.System.GCC  -- preprocessor used
 import Language.C.Data.Ident
 
-import qualified Language.SimpleC.AST as SC
---import Language.SimpleC.Converter
-import qualified Language.SimpleC.SConverter as SCon
+import qualified Language.SimpleC.FAST as SC
+import Language.SimpleC.Converter
 import qualified Language.SimpleC.FConverter as FCon
---import Language.SimpleC.Printer
---import Language.SimpleC.Flow
+import Language.SimpleC.FPrinter
+-- import Language.SimpleC.Flow
 
 parseFile :: FilePath -> IO CTranslUnit
 parseFile f  =
@@ -32,7 +31,7 @@ parseFile f  =
 
 --test :: FilePath -> IO a
 test f = do ctu <- parseFile f
-            return $ FCon.translate ctu 
+            putStrLn $ printProg $ FCon.translate ctu 
 
 --success :: SC.Program -> Bool
 --success (SC.Program _) = True

@@ -6,7 +6,6 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 import Data.Array
 import Language.C.Syntax.AST
-import Language.C.Data.Node (NodeInfo)
 
 type Ident = String
 data Value = 
@@ -19,7 +18,7 @@ data Value =
 type OpCode  = CBinaryOp
 type UOpCode = CUnaryOp
 type AssignOp = CAssignOp
-type At = NodeInfo 
+type PC = Int 
 
 data Type = IntType
   deriving (Show,Eq,Ord)
@@ -89,4 +88,3 @@ data Expression =
   | Member Expression Ident               -- expr -> ident
   | Condition Expression (Maybe Expression) Expression -- cnd ? e1 : e2
   deriving (Show,Eq,Ord)
- -} 

@@ -13,7 +13,7 @@ module Language.SimpleC.FConverter where
 import Language.C 
 import Language.C.System.GCC  -- preprocessor used
 import Language.C.Data.Ident
-import qualified Language.SimpleC.AST as SC
+import qualified Language.SimpleC.FAST as SC
 import qualified Data.Map as M
 import Data.Map (Map)
 
@@ -40,8 +40,34 @@ flatten_decl [] = []
 flatten_decl (d:ds) =
   let decls = flatten_decl ds
       decl = case d of
-        CDecl spec ids at -> map (\i -> SC.Decl spec i at) ids
+        CDecl spec ids at -> 
+	  let norm_spec = normalize_decl_spec spec
+	  in map (\i -> SC.Decl norm_spec i at) ids
   in decl ++ decls
+
+normalize_decl_spec :: [CDeclarationSpecifier NodeInfo] -> SC.DeclarationSpecifier SC.At
+normalize_decl_spec decl_spec =
+  let (st,ty,tyqual) = foldl norm_decl_spec ([],[],[]) decl_spec
+  in case st of
+    []  -> SC.DeclSpec SC.Auto tyqual ty
+    [s] -> SC.DeclSpec s tyqual ty
+    _   -> error "normalize_decl_spec: more than one storage spec" 
+   where
+     norm_decl_spec (st,ty,tyqual) d_spec = 
+       case d_spec of
+         CStorageSpec s -> (translate s:st,ty,tyqual)
+         CTypeSpec    t -> (st,t:ty,tyqual)
+         CTypeQual    q -> (st,ty,q:tyqual) 
+
+-- | Convert the 'C Storage Specifier' 
+instance Convertible (CStorageSpecifier NodeInfo) SC.StorageSpecifier where
+    translate cstorspec = case cstorspec of
+	CAuto n     -> SC.Auto 
+	CRegister n -> SC.Register 
+	CStatic n   -> SC.Static 
+	CExtern n   -> SC.Extern 
+	CTypedef n  -> SC.Typedef
+	CThread n   -> SC.Thread
  
 {-
 -- | Convert the 'C External Declaration'
@@ -66,15 +92,6 @@ instance Convertible (CDeclarationSpecifier NodeInfo) (CDeclarationSpecifier ())
 	CTypeSpec cTypeSpecifier -> CTypeSpec $ translate cTypeSpecifier
 	CTypeQual cTypeQualifier -> CTypeQual $ translate cTypeQualifier
 
--- | Convert the 'C Storage Specifier' 
-instance Convertible (CStorageSpecifier NodeInfo) (CStorageSpecifier ()) where
-    translate cstorspec = case cstorspec of
-	CAuto n     -> CAuto ()	
-	CRegister n -> CRegister ()	
-	CStatic n   -> CStatic ()
-	CExtern n   -> CExtern ()
-	CTypedef n  -> CTypedef ()
-	CThread n   -> CThread ()
 
 -- | Convert the 'C Type Specifier'
 instance Convertible (CTypeSpecifier NodeInfo) (CTypeSpecifier ()) where

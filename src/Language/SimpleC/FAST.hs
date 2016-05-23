@@ -73,7 +73,7 @@ data StorageSpecifier
   deriving Show
 
 -- ^ type name
-data TypeSpecifier a
+data TypeSpecifier ident a
   = VoidType    
   | CharType    
   | ShortType   
@@ -86,15 +86,15 @@ data TypeSpecifier a
   | BoolType    
   | ComplexType 
   | Int128Type  
-  | SUType      (StructureUnion a)      -- ^ Struct or Union specifier
+  | SUType      (StructureUnion ident a)      -- ^ Struct or Union specifier
   | EnumType    (CEnumeration a)    a      -- ^ Enumeration specifier
-  | TypeDef     Ident        a      -- ^ Typedef name
+  | TypeDef     ident        a      -- ^ Typedef name
   | TypeOfExpr  (CExpression a)  a  -- ^ @typeof(expr)@
   | TypeOfType  (CDeclaration a) a  -- ^ @typeof(type)@
   deriving Show
   
-data StructureUnion a 
-  = Struct CStructTag (Maybe Ident) (Maybe [Declaration a]) [CAttribute a] a
+data StructureUnion ident a 
+  = Struct CStructTag (Maybe ident) (Maybe [Declaration a]) [CAttribute a] a
   deriving Show
   
 -- ^ type qualifier

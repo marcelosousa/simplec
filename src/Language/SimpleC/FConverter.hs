@@ -30,21 +30,32 @@ import Control.Monad.State.Lazy
 
 {-
 State
-  
   Godel_Numbering Function : String
   Symbol Table: Map Int Symbol
+  Counter
 
 data Symbol =
   TypeSymbol
   VarSymbol
 -}
 
-data ProcessorState = ProcessorState
+data ProcessorState 
+  = ProcessorState {
+    -- godel   :: String -> Int
+    syms    :: Map Int Symbol
+  , counter :: Int
+  } deriving Show
 
+data Symbol = TypeSym | VarSym
+  deriving Show
+  
 type ProcessorOp a = State ProcessorState a
 
 class Convertible a b | a -> b where
   translate :: a -> b
+
+class Process a b | a -> b where
+  process :: a -> ProcessorOp b
 
 -- | Convert the 'C Translation Unit'
 instance Convertible (CTranslationUnit a) (SC.Program a) where

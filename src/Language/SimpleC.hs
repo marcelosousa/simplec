@@ -6,6 +6,7 @@ import Data.Map (Map)
 import Language.C 
 import Language.C.System.GCC  -- preprocessor used
 import Language.C.Data.Ident
+import Language.C.Analysis.AstAnalysis
 
 import qualified Language.SimpleC.FAST as SC
 import Language.SimpleC.Converter
@@ -31,7 +32,11 @@ parseFile f  =
 
 --test :: FilePath -> IO a
 test f = do ctu <- parseFile f
-            putStrLn $ printProg $ FCon.translate ctu 
+            --let sctu = fmap (\_ -> ()) ctu            
+--            g <- analyseAST ctu
+            print ctu 
+--            print g
+--            putStrLn $ printProg $ FCon.translate sctu 
 
 --success :: SC.Program -> Bool
 --success (SC.Program _) = True

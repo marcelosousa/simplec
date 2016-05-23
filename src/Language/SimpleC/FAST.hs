@@ -18,19 +18,27 @@ type AssignOp = CAssignOp
 type At = NodeInfo 
 
 
+{-
+Given the AST of the C file:
+- It is easy to remove the NodeInfo
+  by using: fmap (\_ -> ())
+- In an ident the name is fully qualified
+-  I would like to apply some godel numbering 
+-  for the symbol table.
+-}
 -- | C Program 
 -- A C Program contains declarations
 -- which can be type declarations,
 -- initialization of global variables
--- and definition of functions. 
-data Program = Prog {
-    decls   :: !Declarations 
-  , defs    :: !Definitions
-  , asm_ext :: !AsmExt 
-  } 
+-- and definition of functions.
+data Program a = Prog {
+    decls   :: Declarations a
+  , defs    :: Definitions a
+  , asm_ext :: AsmExt a
+  } deriving Show
 
 data ProgramData = ProgData {
-    code :: !Program
+    code :: Program ()
   , symbols :: !Symbols
   , cfgs :: !CFG
   }
@@ -39,17 +47,19 @@ data Symbols = SymInfo
 data CFG = CFG
 
 -- | AsmExt : Not sure the use of this attr
-type AsmExt = [CStringLiteral At] 
+type AsmExt a = [CStringLiteral a] 
 -- Declarations can be initialized or not
-type Declarations = [Declaration]
-type Definitions = [CFunctionDef At]
+type Declarations a = [Declaration a]
+type Definitions a = [CFunctionDef a]
 
-type DeclElem = (Maybe (CDeclarator At), Maybe (CInitializer At), Maybe (CExpression At))
-data Declaration = Decl (DeclarationSpecifier At) DeclElem At	
+type DeclElem a = (Maybe (CDeclarator a), Maybe (CInitializer a), Maybe (CExpression a))
+data Declaration a = 
+    Decl (DeclarationSpecifier a) (DeclElem a)
+  | TypeDecl (DeclarationSpecifier a)
   deriving Show
 
 data DeclarationSpecifier a
-  = DeclSpec StorageSpecifier [CTypeQualifier a] [CTypeSpecifier a] 
+  = DeclSpec StorageSpecifier [CTypeQualifier a] [TypeSpecifier a] 
   deriving Show
 
 -- ^ storage-class specifier or typedef
@@ -76,12 +86,17 @@ data TypeSpecifier a
   | BoolType    
   | ComplexType 
   | Int128Type  
-  | SUType      (CStructureUnion a) a      -- ^ Struct or Union specifier
+  | SUType      (StructureUnion a)      -- ^ Struct or Union specifier
   | EnumType    (CEnumeration a)    a      -- ^ Enumeration specifier
   | TypeDef     Ident        a      -- ^ Typedef name
   | TypeOfExpr  (CExpression a)  a  -- ^ @typeof(expr)@
   | TypeOfType  (CDeclaration a) a  -- ^ @typeof(type)@
-
+  deriving Show
+  
+data StructureUnion a 
+  = Struct CStructTag (Maybe Ident) (Maybe [Declaration a]) [CAttribute a] a
+  deriving Show
+  
 -- ^ type qualifier
 data TypeQualifier a 
   = ConstQual 

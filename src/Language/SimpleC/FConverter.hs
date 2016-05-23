@@ -6,7 +6,17 @@
 {-#LANGUAGE FlexibleContexts #-}
 
 {-
-  This is a full converter from the C language 
+  This is a full converter from the C language
+  Assumptions:
+  1. The code compiles;
+  2. The code can be parsed.
+
+  The the main goal of this module
+  is to consume the AST of the parse tree
+  and produce:
+  1. A suitable representation for interpretation
+  and analysis:    
+  2. Auxiliary 
 -}
 module Language.SimpleC.FConverter where
 
@@ -16,12 +26,28 @@ import Language.C.Data.Ident
 import qualified Language.SimpleC.FAST as SC
 import qualified Data.Map as M
 import Data.Map (Map)
+import Control.Monad.State.Lazy
+
+{-
+State
+  
+  Godel_Numbering Function : String
+  Symbol Table: Map Int Symbol
+
+data Symbol =
+  TypeSymbol
+  VarSymbol
+-}
+
+data ProcessorState = ProcessorState
+
+type ProcessorOp a = State ProcessorState a
 
 class Convertible a b | a -> b where
   translate :: a -> b
 
 -- | Convert the 'C Translation Unit'
-instance Convertible CTranslUnit SC.Program where
+instance Convertible (CTranslationUnit a) (SC.Program a) where
   translate (CTranslUnit cdecls n) = 
     let (decls,defs,asms) = tr cdecls
         flat_decls = flatten_decl decls
@@ -35,40 +61,66 @@ instance Convertible CTranslUnit SC.Program where
            CFDefExt fn   -> (decls,fn:defs,asms)  
            CAsmExt asm _ -> (decls,defs,asm:asms) 
 
-flatten_decl :: [CDeclaration NodeInfo] -> SC.Declarations
+flatten_decl :: [CDeclaration a] -> (SC.Declarations a)
 flatten_decl [] = []
 flatten_decl (d:ds) =
   let decls = flatten_decl ds
       decl = case d of
         CDecl spec ids at -> 
-	  let norm_spec = normalize_decl_spec spec
-	  in map (\i -> SC.Decl norm_spec i at) ids
+	        let norm_spec = normalize_decl_spec spec
+          in case ids of
+            [] -> [SC.TypeDecl norm_spec]
+            _  -> map (\i -> SC.Decl norm_spec i) ids
   in decl ++ decls
 
-normalize_decl_spec :: [CDeclarationSpecifier NodeInfo] -> SC.DeclarationSpecifier SC.At
+normalize_decl_spec :: [CDeclarationSpecifier a] -> SC.DeclarationSpecifier a
 normalize_decl_spec decl_spec =
   let (st,ty,tyqual) = foldl norm_decl_spec ([],[],[]) decl_spec
   in case st of
     []  -> SC.DeclSpec SC.Auto tyqual ty
-    [s] -> SC.DeclSpec s tyqual ty
+    [s] -> SC.DeclSpec s       tyqual ty
     _   -> error "normalize_decl_spec: more than one storage spec" 
    where
      norm_decl_spec (st,ty,tyqual) d_spec = 
        case d_spec of
          CStorageSpec s -> (translate s:st,ty,tyqual)
-         CTypeSpec    t -> (st,t:ty,tyqual)
+         CTypeSpec    t -> (st,translate t:ty,tyqual)
          CTypeQual    q -> (st,ty,q:tyqual) 
 
 -- | Convert the 'C Storage Specifier' 
-instance Convertible (CStorageSpecifier NodeInfo) SC.StorageSpecifier where
-    translate cstorspec = case cstorspec of
-	CAuto n     -> SC.Auto 
-	CRegister n -> SC.Register 
-	CStatic n   -> SC.Static 
-	CExtern n   -> SC.Extern 
-	CTypedef n  -> SC.Typedef
-	CThread n   -> SC.Thread
- 
+instance Convertible (CStorageSpecifier a) SC.StorageSpecifier where
+  translate cstorspec = case cstorspec of
+	  CAuto n     -> SC.Auto 
+	  CRegister n -> SC.Register 
+	  CStatic n   -> SC.Static 
+	  CExtern n   -> SC.Extern 
+	  CTypedef n  -> SC.Typedef
+	  CThread n   -> SC.Thread
+
+-- | Convert the 'C Type Specifier'
+instance Convertible (CTypeSpecifier a) (SC.TypeSpecifier a) where
+  translate ctyspec = case ctyspec of
+	  CVoidType n	  -> SC.VoidType
+	  CCharType n	  -> SC.CharType	
+	  CShortType n	-> SC.ShortType	
+	  CIntType n	  -> SC.IntType
+	  CLongType n	  -> SC.LongType	
+	  CFloatType n	-> SC.FloatType
+	  CDoubleType n	-> SC.DoubleType
+	  CSignedType n	-> SC.SignedType
+	  CUnsigType n  -> SC.UnsigType
+	  CBoolType n	  -> SC.BoolType
+	  CComplexType n   -> SC.ComplexType
+	  CTypeDef ident n -> SC.TypeDef ident n
+	  CSUType cStructureUnion  n ->
+	  	SC.SUType undefined
+	  CEnumType cEnumeration   n ->
+	  	SC.EnumType cEnumeration n
+	  CTypeOfExpr cExpression  n ->
+	  	SC.TypeOfExpr cExpression n
+	  CTypeOfType cDeclaration n ->
+	  	SC.TypeOfType cDeclaration n
+    
 {-
 -- | Convert the 'C External Declaration'
 instance Convertible (CExternalDeclaration NodeInfo) (CExternalDeclaration ()) where

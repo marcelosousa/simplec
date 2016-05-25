@@ -39,12 +39,12 @@ data Symbol =
   VarSymbol
 -}
 
-data ProcessorState a 
+data ProcessorState node
   = ProcState {
     -- godel   :: String -> Int
     syms    :: Map Int Symbol
   , counter :: Int
-  , code :: SC.Program SC.SymId a 
+  , code :: SC.Program SC.SymId node
   } deriving Show
 
 init_code :: SC.Program ident a
@@ -56,41 +56,41 @@ init_st = ProcState M.empty 0 init_code
 data Symbol = TypeSym | VarSym
   deriving Show
   
-type ProcessorOp a b = State (ProcessorState b) a
+type ProcessorOp node val = State (ProcessorState node) val
 
 -- | API
-newSymbol :: Ident -> ProcessorOp b SC.SymId
+newSymbol :: Ident -> ProcessorOp a SC.SymId
 newSymbol = undefined
 
 -- | Main Functions
--- processor :: CTranslationUnit a -> SC.Program Ident a
+processor :: CTranslationUnit a -> SC.Program SC.SymId a
 processor cprog = 
-  let (_,st) = runState (process cprog) init_st
+  let ((),st) = runState (process cprog) init_st
   in code st
 
 -- | Main processing class 
-class Process a b | a -> b where
-  process :: a -> ProcessorOp b
+class Process a n v  where
+  process :: a -> ProcessorOp n v
 
 -- | Convert the 'C Translation Unit'
-instance Process (CTranslationUnit a) () where
+instance Process (CTranslationUnit a) a () where
   process (CTranslUnit cdecls n) =
-    mapM_ process cdecls
+    mapM_ (process :: CExternalDeclaration a -> ProcessorOp a ()) cdecls
 
-instance Process (CExternalDeclaration a) () where
+instance Process (CExternalDeclaration a) a () where
   process cextdecl =
     case cextdecl of
       CDeclExt cdecl -> process cdecl
       CFDefExt cfun  -> process cfun
       CAsmExt cstr n -> error "TODO: Support CAsmExt"
 
-instance Process (CDeclaration a) () where
+instance Process (CDeclaration a) a () where
   process (CDecl cdeclspec cdeclrs n) = do
     ty <- toType cdeclspec
     return ()
 
 -- | CDeclarationSpecifier specifies a type
-toType :: [CDeclarationSpecifier a] -> ProcessorOp (SC.Type SC.SymId a)
+toType :: [CDeclarationSpecifier a] -> ProcessorOp a (SC.Type SC.SymId a)
 toType decl_spec = do
   (st,ty,tyqual) <- foldM _toType ([],[],[]) decl_spec
   case st of
@@ -109,7 +109,7 @@ toType decl_spec = do
          CTypeQual    q -> return (st,ty,q:tyqual)
  
 -- | Process the 'C Storage Specifier' 
-instance Process (CStorageSpecifier a) SC.StorageSpecifier where
+instance Process (CStorageSpecifier a) a SC.StorageSpecifier where
   process cStorSpec = do 
     let storSpec = case cStorSpec of
           CAuto n     -> SC.Auto 
@@ -121,7 +121,7 @@ instance Process (CStorageSpecifier a) SC.StorageSpecifier where
     return storSpec 
 
 -- | Convert the 'C Type Specifier'
-instance Process (CTypeSpecifier a) (SC.TypeSpecifier SC.SymId a) where
+instance Process (CTypeSpecifier a) a (SC.TypeSpecifier SC.SymId a) where
   process ctyspec = case ctyspec of
     CVoidType n	   -> return $ SC.VoidType
     CCharType n	   -> return $ SC.CharType	
@@ -147,14 +147,15 @@ instance Process (CTypeSpecifier a) (SC.TypeSpecifier SC.SymId a) where
     CTypeOfType cDeclaration n ->
       error "process CTypeOfType not supported"
 
-instance Process (CStructureUnion a) (SC.StructureUnion SC.SymId a) where
+instance Process (CStructureUnion a) a (SC.StructureUnion SC.SymId a) where
   process = undefined
 
-instance Process (CFunctionDef a) () where
+instance Process (CFunctionDef a) a t where
   process = undefined
 
 flatten_decl :: [CDeclaration a] -> (SC.Declarations Ident a)
 flatten_decl = undefined
+
 {-
 flatten_decl [] = []
 flatten_decl (d:ds) =

@@ -9,10 +9,10 @@ import qualified Language.SimpleC.FAST as SC
 import qualified Data.Map as M
 import Data.Map (Map)
 
-printProg :: (Show a) => SC.Program a -> String
+printProg :: (Show ident, Show a) => SC.Program ident a -> String
 printProg p@SC.Prog{..} = 
   foldl printDecl "" decls
 
-printDecl :: (Show a) => String -> SC.Declaration a -> String
+printDecl :: (Show ident, Show a) => String -> SC.Declaration ident a -> String
 printDecl s d = show d ++ "\n" ++ s 
 

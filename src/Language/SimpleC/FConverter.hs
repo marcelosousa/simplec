@@ -39,40 +39,123 @@ data Symbol =
   VarSymbol
 -}
 
-data ProcessorState 
-  = ProcessorState {
+data ProcessorState a 
+  = ProcState {
     -- godel   :: String -> Int
     syms    :: Map Int Symbol
   , counter :: Int
+  , code :: SC.Program SC.SymId a 
   } deriving Show
+
+init_code :: SC.Program ident a
+init_code = SC.Prog [] [] []
+
+init_st :: ProcessorState a
+init_st = ProcState M.empty 0 init_code 
 
 data Symbol = TypeSym | VarSym
   deriving Show
   
-type ProcessorOp a = State ProcessorState a
+type ProcessorOp a b = State (ProcessorState b) a
 
-class Convertible a b | a -> b where
-  translate :: a -> b
+-- | API
+newSymbol :: Ident -> ProcessorOp b SC.SymId
+newSymbol = undefined
 
+-- | Main Functions
+-- processor :: CTranslationUnit a -> SC.Program Ident a
+processor cprog = 
+  let (_,st) = runState (process cprog) init_st
+  in code st
+
+-- | Main processing class 
 class Process a b | a -> b where
   process :: a -> ProcessorOp b
 
 -- | Convert the 'C Translation Unit'
-instance Convertible (CTranslationUnit a) (SC.Program a) where
-  translate (CTranslUnit cdecls n) = 
-    let (decls,defs,asms) = tr cdecls
-        flat_decls = flatten_decl decls
-    in SC.Prog flat_decls defs asms
-   where 
-    tr [] = ([],[],[])
-    tr (cdecl:cs) =
-      let (decls,defs,asms) = tr cs
-      in case cdecl of
-           CDeclExt decl -> (decl:decls,defs,asms)
-           CFDefExt fn   -> (decls,fn:defs,asms)  
-           CAsmExt asm _ -> (decls,defs,asm:asms) 
+instance Process (CTranslationUnit a) () where
+  process (CTranslUnit cdecls n) =
+    mapM_ process cdecls
 
-flatten_decl :: [CDeclaration a] -> (SC.Declarations a)
+instance Process (CExternalDeclaration a) () where
+  process cextdecl =
+    case cextdecl of
+      CDeclExt cdecl -> process cdecl
+      CFDefExt cfun  -> process cfun
+      CAsmExt cstr n -> error "TODO: Support CAsmExt"
+
+instance Process (CDeclaration a) () where
+  process (CDecl cdeclspec cdeclrs n) = do
+    ty <- toType cdeclspec
+    return ()
+
+-- | CDeclarationSpecifier specifies a type
+toType :: [CDeclarationSpecifier a] -> ProcessorOp (SC.Type SC.SymId a)
+toType decl_spec = do
+  (st,ty,tyqual) <- foldM _toType ([],[],[]) decl_spec
+  case st of
+    []  -> return $ SC.Type SC.Auto tyqual ty
+    [s] -> return $ SC.Type s       tyqual ty
+    _   -> error "toType: more than one storage spec" 
+   where
+     _toType (st,ty,tyqual) d_spec = 
+       case d_spec of
+         CStorageSpec s -> do
+           _s <- process s
+           return (_s:st,ty,tyqual)
+         CTypeSpec    t -> do
+           _t <- process t
+           return (st,_t:ty,tyqual)
+         CTypeQual    q -> return (st,ty,q:tyqual)
+ 
+-- | Process the 'C Storage Specifier' 
+instance Process (CStorageSpecifier a) SC.StorageSpecifier where
+  process cStorSpec = do 
+    let storSpec = case cStorSpec of
+          CAuto n     -> SC.Auto 
+          CRegister n -> SC.Register 
+          CStatic n   -> SC.Static 
+          CExtern n   -> SC.Extern 
+          CTypedef n  -> SC.Typedef
+          CThread n   -> SC.Thread
+    return storSpec 
+
+-- | Convert the 'C Type Specifier'
+instance Process (CTypeSpecifier a) (SC.TypeSpecifier SC.SymId a) where
+  process ctyspec = case ctyspec of
+    CVoidType n	   -> return $ SC.VoidType
+    CCharType n	   -> return $ SC.CharType	
+    CShortType n   -> return $ SC.ShortType	
+    CIntType n	   -> return $ SC.IntType
+    CLongType n	   -> return $ SC.LongType	
+    CFloatType n   -> return $ SC.FloatType
+    CDoubleType n  -> return $ SC.DoubleType
+    CSignedType n  -> return $ SC.SignedType
+    CUnsigType n   -> return $ SC.UnsigType
+    CBoolType n	   -> return $ SC.BoolType
+    CComplexType n -> return $ SC.ComplexType
+    CTypeDef ident n -> do
+      sym <- newSymbol ident
+      return $ SC.TypeDef sym n
+    CSUType cStructureUnion n -> do
+      structOrUnion <- process cStructureUnion
+      return $ SC.SUType structOrUnion 
+    CEnumType cEnumeration n -> 
+      return $ SC.EnumType cEnumeration n
+    CTypeOfExpr cExpression n -> 
+      error "process CTypeOfExpr not supported"
+    CTypeOfType cDeclaration n ->
+      error "process CTypeOfType not supported"
+
+instance Process (CStructureUnion a) (SC.StructureUnion SC.SymId a) where
+  process = undefined
+
+instance Process (CFunctionDef a) () where
+  process = undefined
+
+flatten_decl :: [CDeclaration a] -> (SC.Declarations Ident a)
+flatten_decl = undefined
+{-
 flatten_decl [] = []
 flatten_decl (d:ds) =
   let decls = flatten_decl ds
@@ -84,54 +167,7 @@ flatten_decl (d:ds) =
             _  -> map (\i -> SC.Decl norm_spec i) ids
   in decl ++ decls
 
-normalize_decl_spec :: [CDeclarationSpecifier a] -> SC.DeclarationSpecifier a
-normalize_decl_spec decl_spec =
-  let (st,ty,tyqual) = foldl norm_decl_spec ([],[],[]) decl_spec
-  in case st of
-    []  -> SC.DeclSpec SC.Auto tyqual ty
-    [s] -> SC.DeclSpec s       tyqual ty
-    _   -> error "normalize_decl_spec: more than one storage spec" 
-   where
-     norm_decl_spec (st,ty,tyqual) d_spec = 
-       case d_spec of
-         CStorageSpec s -> (translate s:st,ty,tyqual)
-         CTypeSpec    t -> (st,translate t:ty,tyqual)
-         CTypeQual    q -> (st,ty,q:tyqual) 
-
--- | Convert the 'C Storage Specifier' 
-instance Convertible (CStorageSpecifier a) SC.StorageSpecifier where
-  translate cstorspec = case cstorspec of
-	  CAuto n     -> SC.Auto 
-	  CRegister n -> SC.Register 
-	  CStatic n   -> SC.Static 
-	  CExtern n   -> SC.Extern 
-	  CTypedef n  -> SC.Typedef
-	  CThread n   -> SC.Thread
-
--- | Convert the 'C Type Specifier'
-instance Convertible (CTypeSpecifier a) (SC.TypeSpecifier a) where
-  translate ctyspec = case ctyspec of
-	  CVoidType n	  -> SC.VoidType
-	  CCharType n	  -> SC.CharType	
-	  CShortType n	-> SC.ShortType	
-	  CIntType n	  -> SC.IntType
-	  CLongType n	  -> SC.LongType	
-	  CFloatType n	-> SC.FloatType
-	  CDoubleType n	-> SC.DoubleType
-	  CSignedType n	-> SC.SignedType
-	  CUnsigType n  -> SC.UnsigType
-	  CBoolType n	  -> SC.BoolType
-	  CComplexType n   -> SC.ComplexType
-	  CTypeDef ident n -> SC.TypeDef ident n
-	  CSUType cStructureUnion  n ->
-	  	SC.SUType undefined
-	  CEnumType cEnumeration   n ->
-	  	SC.EnumType cEnumeration n
-	  CTypeOfExpr cExpression  n ->
-	  	SC.TypeOfExpr cExpression n
-	  CTypeOfType cDeclaration n ->
-	  	SC.TypeOfType cDeclaration n
-    
+-}  
 {-
 -- | Convert the 'C External Declaration'
 instance Convertible (CExternalDeclaration NodeInfo) (CExternalDeclaration ()) where

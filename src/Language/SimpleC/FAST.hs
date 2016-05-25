@@ -31,14 +31,14 @@ Given the AST of the C file:
 -- which can be type declarations,
 -- initialization of global variables
 -- and definition of functions.
-data Program a = Prog {
-    decls   :: Declarations a
+data Program ident a = Prog {
+    decls   :: Declarations ident a
   , defs    :: Definitions a
   , asm_ext :: AsmExt a
   } deriving Show
 
 data ProgramData = ProgData {
-    code :: Program ()
+    code :: Program Ident ()
   , symbols :: !Symbols
   , cfgs :: !CFG
   }
@@ -49,17 +49,17 @@ data CFG = CFG
 -- | AsmExt : Not sure the use of this attr
 type AsmExt a = [CStringLiteral a] 
 -- Declarations can be initialized or not
-type Declarations a = [Declaration a]
+type Declarations ident a = [Declaration ident a]
 type Definitions a = [CFunctionDef a]
 
 type DeclElem a = (Maybe (CDeclarator a), Maybe (CInitializer a), Maybe (CExpression a))
-data Declaration a = 
-    Decl (DeclarationSpecifier a) (DeclElem a)
-  | TypeDecl (DeclarationSpecifier a)
+data Declaration ident a = 
+    Decl (Type ident a) (DeclElem a)
+  | TypeDecl (Type ident a)
   deriving Show
 
-data DeclarationSpecifier a
-  = DeclSpec StorageSpecifier [CTypeQualifier a] [TypeSpecifier a] 
+data Type ident a
+  = Type StorageSpecifier [CTypeQualifier a] [TypeSpecifier ident a] 
   deriving Show
 
 -- ^ storage-class specifier or typedef
@@ -94,7 +94,7 @@ data TypeSpecifier ident a
   deriving Show
   
 data StructureUnion ident a 
-  = Struct CStructTag (Maybe ident) (Maybe [Declaration a]) [CAttribute a] a
+  = Struct CStructTag (Maybe ident) (Maybe [Declaration ident a]) [CAttribute a] a
   deriving Show
   
 -- ^ type qualifier

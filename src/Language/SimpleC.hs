@@ -32,11 +32,10 @@ parseFile f  =
 
 --test :: FilePath -> IO a
 test f = do ctu <- parseFile f
-            --let sctu = fmap (\_ -> ()) ctu            
---            g <- analyseAST ctu
-            print ctu 
---            print g
---            putStrLn $ printProg $ FCon.translate sctu 
+            let sctu = fmap (\_ -> ()) ctu            
+--            print ctu
+                p = FCon.processor sctu 
+            putStrLn $ printProg p
 
 --success :: SC.Program -> Bool
 --success (SC.Program _) = True

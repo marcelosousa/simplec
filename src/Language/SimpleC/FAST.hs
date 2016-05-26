@@ -64,7 +64,8 @@ data DeclElem ident a =
 
 -- | C Declarator
 data Declarator ident a =
-  Declr ident [DerivedDeclarator ident a] (Maybe (CStringLiteral a)) [Attribute ident a] a
+  Declr (Maybe ident) [DerivedDeclarator ident a] 
+        (Maybe (CStringLiteral a)) [Attribute ident a] a
   deriving Show
 
 data DerivedDeclarator ident a

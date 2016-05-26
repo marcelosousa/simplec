@@ -4,6 +4,7 @@
 {-#LANGUAGE TypeSynonymInstances #-}
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
+{-#LANGUAGE RecordWildCards #-}
 
 {-
   This is a full converter from the C language
@@ -41,42 +42,72 @@ data Symbol =
 
 data ProcessorState node
   = ProcState {
-    -- godel   :: String -> Int
-    syms    :: Map Int Symbol
+    godel   :: Map (Int, Scope) Int 
+  , syms    :: Map Int Symbol
   , counter :: Int
   , code :: SC.Program SC.SymId node
+  , scope :: Scope
   } deriving Show
+
+data Scope = Global | Local | None
+  deriving (Show,Eq,Ord)
 
 init_code :: SC.Program ident a
 init_code = SC.Prog [] [] []
 
 init_st :: ProcessorState a
-init_st = ProcState M.empty 0 init_code 
+init_st = ProcState M.empty M.empty 0 init_code Global 
 
-data Symbol = TypeSym | VarSym
+data Symbol = TypeSym | VarSym Ident
   deriving Show
   
 type ProcessorOp node val = State (ProcessorState node) val
 
 -- | API
-toSymbol :: Ident -> ProcessorOp a SC.SymId
-toSymbol (Ident str hash nodeinfo) = do
+incCounter :: ProcessorOp a Int
+incCounter = do
   p@ProcState{..} <- get
+  let c' = counter + 1
+  put p {counter = c'}
+  return c'
+
+toSymbol :: Ident -> ProcessorOp a SC.SymId
+toSymbol i@(Ident str hash nodeinfo) = do
+  p@ProcState{..} <- get
+  case M.lookup (hash,scope) godel of
+    Nothing -> do
+      k <- incCounter
+      p@ProcState{..} <- get
+      let syms' = M.insert k (VarSym i) syms
+          godel' = M.insert (hash,scope) k godel
+      put p {syms=syms',godel=godel'}
+      return k
+    Just k  -> return k 
   
 
 -- | Add Declarations: Either a TypeDecl or a Decl
+addDeclaration :: SC.Declaration SC.SymId a -> ProcessorOp a ()
+addDeclaration d = do 
+  p@ProcState{..} <- get
+  let decls' = (SC.decls code)++[d]
+      code' = code {SC.decls=decls'}
+  put p {code = code'} 
+
 addType :: SC.Type SC.SymId a -> ProcessorOp a ()
-addType = undefined
+addType ty = do
+  let d = SC.TypeDecl ty
+  addDeclaration d
 
 addDecl :: SC.Type SC.SymId a -> SC.DeclElem SC.SymId a -> ProcessorOp a ()
-addDecl = undefined
-
+addDecl ty el = do
+  let d = SC.Decl ty el
+  addDeclaration d
 
 -- | Main Functions
-processor :: CTranslationUnit a -> SC.Program SC.SymId a
+processor :: CTranslationUnit a -> ProcessorState a
 processor cprog = 
   let ((),st) = runState (process cprog) init_st
-  in code st
+  in st
 
 -- | Main processing class 
 class Process a n v  where
@@ -109,7 +140,12 @@ instance Process (CDeclaration a) a (SC.Declaration SC.SymId a) where
     ty <- toType cdeclspec
     if null cdeclrs
     then return $ SC.TypeDecl ty 
-    else undefined
+    else case cdeclrs of
+      [cdeclr] -> do
+        declr <- process cdeclr
+        let d = SC.Decl ty declr
+        return d
+      _ -> error "cant process CDeclaration with multiple declarators" 
 
 -- | CDeclarationSpecifier specifies a type
 toType :: [CDeclarationSpecifier a] -> ProcessorOp a (SC.Type SC.SymId a)
@@ -149,14 +185,19 @@ instance Process (SC.CDeclElem a) a (SC.DeclElem SC.SymId a) where
 instance Process (CDeclarator a) a (SC.Declarator SC.SymId a) where
   process cDeclr =
     case cDeclr of 
-      CDeclr mIdent cDerDeclr cStr cAttr a ->
+      CDeclr mIdent cDerDeclr cStr cAttr a -> do
+        attr <- process cAttr
+        derDeclr <- process cDerDeclr
         case mIdent of
-          Nothing -> error "Declarator without identifier"
+          Nothing ->
+            return $ SC.Declr Nothing derDeclr cStr attr a 
           Just ident -> do
-            sym <- toSymbol ident
-            attr <- process cAttr
-            derDeclr <- process cDerDeclr
-            return $ SC.Declr sym derDeclr cStr attr a
+            p@ProcState{..} <- get
+            if scope == None
+            then return $ SC.Declr Nothing derDeclr cStr attr a 
+            else do
+              sym <- toSymbol ident
+              return $ SC.Declr (Just sym) derDeclr cStr attr a 
    
 -- | Process an Initializer
 instance Process (CInitializer a) a (SC.Initializer SC.SymId a) where
@@ -183,7 +224,12 @@ instance Process (CDerivedDeclarator a) a (SC.DerivedDeclarator SC.SymId a) wher
             syms <- mapM toSymbol idents
             return $ SC.FunDeclr (Left syms) attrs
           Right (cdecls, b) -> do
+            -- | Dont care about identifiers for pars 
+            s@ProcState{..} <- get
+            let scope' = scope
+            put s {scope = None}
             decls <- mapM process cdecls
+            put s {scope = scope'}
             return $ SC.FunDeclr (Right (decls,b)) attrs
 
 -- | Process the 'C Array Size' 

@@ -11,8 +11,8 @@ import Data.Map (Map)
 
 printProg :: (Show ident, Show a) => SC.Program ident a -> String
 printProg p@SC.Prog{..} = 
-  foldl printDecl "" decls
+  foldr printDecl "" decls
 
-printDecl :: (Show ident, Show a) => String -> SC.Declaration ident a -> String
-printDecl s d = show d ++ "\n" ++ s 
+printDecl :: (Show ident, Show a) => SC.Declaration ident a -> String -> String
+printDecl d s = show d ++ "\n" ++ s 
 

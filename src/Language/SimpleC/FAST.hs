@@ -37,7 +37,7 @@ data Program ident a
   = Prog 
     {
       decls   :: Declarations ident a
-    , defs    :: Definitions a
+    , defs    :: Definitions ident a
     , asm_ext :: AsmExt a
     } deriving Show
 
@@ -56,7 +56,15 @@ data CFG = CFG
 type AsmExt a = [CStringLiteral a] 
 -- Declarations can be initialized or not
 type Declarations ident a = [Declaration ident a]
-type Definitions a = [CFunctionDef a]
+type Definitions  ident a = [FunctionDef ident a]
+
+data FunctionDef ident a
+  = FunDef (Type ident a)        -- return type?
+           (Declarator ident a)  -- identifer?
+           [Declaration ident a] -- parameters?
+           (Statement ident a)   -- body?
+           a
+  deriving Show
 
 data Declaration ident a 
   = Decl (Type ident a) (DeclElem ident a)
@@ -102,6 +110,7 @@ data PartDesignator ident a
   | RangeDesig (Expression ident a) (Expression ident a)
   deriving Show
 
+-- | Equivalent to a DeclarationSpecifier
 data Type ident a
   = Type StorageSpecifier [TypeQualifier ident a] [TypeSpecifier ident a] 
   deriving Show
@@ -131,16 +140,23 @@ data TypeSpecifier ident a
   | ComplexType 
   | Int128Type  
   | SUType      (StructureUnion ident a) -- ^ Struct or Union specifier
-  | EnumType    (CEnumeration a)    a    -- ^ Enumeration specifier
-  | TypeDef     ident        a      -- ^ Typedef name
+  | EnumType    (Enumeration ident a) a  -- ^ Enumeration specifier
+  | TypeDef     ident        a           -- ^ Typedef name
   | TypeOfExpr  (Expression ident a)  a  -- ^ @typeof(expr)@
-  | TypeOfType  (CDeclaration a) a  -- ^ @typeof(type)@
+  | TypeOfType  (Declaration ident a) a  -- ^ @typeof(type)@
   deriving Show
   
 data StructureUnion ident a 
   = Struct StructTag ident (Maybe [Declaration ident a]) [Attribute ident a] a
   deriving Show
-  
+
+data Enumeration ident a
+  = Enum ident
+         (Maybe [(ident, Maybe (Expression ident a))])
+         [Attribute ident a]
+         a
+  deriving Show
+ 
 -- ^ type qualifier
 data TypeQualifier ident a 
   = ConstQual 
@@ -192,6 +208,7 @@ data Statement ident a
   = Break a
   | Case (Expression ident a) (Statement ident a) a
   | Cases (Expression ident a) (Expression ident a) (Statement ident a) a
+  | Compound [ident] [CompoundBlockItem ident a] a
   | Cont a
   | Default (Statement ident a) a
   | Expr (Expression ident a) a -- * Removed the Maybe
@@ -209,5 +226,10 @@ data Statement ident a
   | While (Expression ident a) (Statement ident a) Bool a
   -- | Not supported
   | Asm (CAssemblyStatement a) a
-  | Compound [Ident] [CCompoundBlockItem a] a
+  deriving Show
+
+data CompoundBlockItem ident a
+  = BlockStmt (Statement ident a)
+  | BlockDecl (Declaration ident a)
+  | NestedFunDef (FunctionDef ident a)
   deriving Show

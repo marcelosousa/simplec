@@ -71,18 +71,6 @@ incCounter = do
   put p {counter = c'}
   return c'
 
-toSymbol :: Ident -> ProcessorOp a SC.SymId
-toSymbol i@(Ident str hash nodeinfo) = do
-  p@ProcState{..} <- get
-  case M.lookup (hash,scope) godel of
-    Nothing -> do
-      k <- incCounter
-      p@ProcState{..} <- get
-      let syms' = M.insert k (VarSym i) syms
-          godel' = M.insert (hash,scope) k godel
-      put p {syms=syms',godel=godel'}
-      return k
-    Just k  -> return k 
   
 
 -- | Add Declarations: Either a TypeDecl or a Decl
@@ -103,6 +91,14 @@ addDecl ty el = do
   let d = SC.Decl ty el
   addDeclaration d
 
+addFunction :: SC.FunctionDef SC.SymId a -> ProcessorOp a ()
+addFunction fun = do 
+  p@ProcState{..} <- get
+  let defs' = (SC.defs code)++[fun]
+      code' = code {SC.defs=defs'}
+  put p {code = code'} 
+
+
 -- | Main Functions
 processor :: CTranslationUnit a -> ProcessorState a
 processor cprog = 
@@ -112,6 +108,20 @@ processor cprog =
 -- | Main processing class 
 class Process a n v  where
   process :: a -> ProcessorOp n v
+
+-- | One of the most important instances
+instance Process Ident a SC.SymId where
+  process i@(Ident str hash nodeinfo) = do
+    p@ProcState{..} <- get
+    case M.lookup (hash,scope) godel of
+      Nothing -> do
+        k <- incCounter
+        p@ProcState{..} <- get
+        let syms' = M.insert k (VarSym i) syms
+            godel' = M.insert (hash,scope) k godel
+        put p {syms=syms',godel=godel'}
+        return k
+      Just k  -> return k 
 
 -- | Convert the 'C Translation Unit'
 instance Process (CTranslationUnit a) a () where
@@ -132,7 +142,7 @@ instance Process (CDeclaration a) a () where
     then addType ty
     else do
       -- | Process the C declarators
-      declrs <- mapM process cdeclrs
+      declrs <- process cdeclrs
       mapM_ (addDecl ty) declrs 
 
 instance Process (CDeclaration a) a (SC.Declaration SC.SymId a) where
@@ -196,7 +206,7 @@ instance Process (CDeclarator a) a (SC.Declarator SC.SymId a) where
             if scope == None
             then return $ SC.Declr Nothing derDeclr cStr attr a 
             else do
-              sym <- toSymbol ident
+              sym <- process ident
               return $ SC.Declr (Just sym) derDeclr cStr attr a 
    
 -- | Process an Initializer
@@ -207,15 +217,18 @@ instance Process (CInitializer a) a (SC.Initializer SC.SymId a) where
         expr <- process cExpr
         return $ SC.InitExpr expr 
       CInitList list _ -> do
-        _list <- mapM process list
+        _list <- process list
         return $ SC.InitList _list
 
+{- 
+--  Overlaps with the more general one defined below
 -- | Process an InitializerList Element
 instance Process (SC.CInitializerListEl a) a (SC.InitializerListEl SC.SymId a) where
   process (cPartList,cInit) = do
-    partList <- mapM process cPartList
+    partList <- process cPartList
     init <- process cInit
     return (partList,init)
+-}
 
 -- | Process the 'C Part Designator'
 instance Process (CPartDesignator a) a (SC.PartDesignator SC.SymId a) where
@@ -224,7 +237,7 @@ instance Process (CPartDesignator a) a (SC.PartDesignator SC.SymId a) where
       expr <- process cExpr
       return $ SC.ArrDesig expr 
     CMemberDesig ident n -> do
-      sym <- toSymbol ident
+      sym <- process ident
       return $ SC.MemberDesig sym  
     CRangeDesig cExpr cExpr' n -> do
       expr <- process cExpr
@@ -236,24 +249,24 @@ instance Process (CDerivedDeclarator a) a (SC.DerivedDeclarator SC.SymId a) wher
   process cDerDeclr = 
     case cDerDeclr of
       CPtrDeclr cTyQual _ -> do
-        tyQual <- mapM process cTyQual
+        tyQual <- process cTyQual
         return $ SC.PtrDeclr tyQual
       CArrDeclr cTyQual cArrSize _ -> do
-        tyQual <- mapM process cTyQual
+        tyQual <- process cTyQual
         arrSize <- process cArrSize
         return $ SC.ArrDeclr tyQual arrSize
       CFunDeclr eth cAttr _ -> do
-        attrs <- mapM process cAttr
+        attrs <- process cAttr
         case eth of
           Left idents -> do
-            syms <- mapM toSymbol idents
+            syms <- process idents
             return $ SC.FunDeclr (Left syms) attrs
           Right (cdecls, b) -> do
             -- | Dont care about identifiers for pars 
             s@ProcState{..} <- get
             let scope' = scope
             put s {scope = None}
-            decls <- mapM process cdecls
+            decls <- process cdecls
             put s {scope = scope'}
             return $ SC.FunDeclr (Right (decls,b)) attrs
 
@@ -305,18 +318,21 @@ instance Process (CTypeSpecifier a) a (SC.TypeSpecifier SC.SymId a) where
     CBoolType n	   -> return $ SC.BoolType
     CComplexType n -> return $ SC.ComplexType
     CTypeDef ident n -> do
-      sym <- toSymbol ident
+      sym <- process ident
       return $ SC.TypeDef sym n
     CSUType cStructureUnion n -> do
       structOrUnion <- process cStructureUnion
       return $ SC.SUType structOrUnion 
-    CEnumType cEnumeration n -> 
-      return $ SC.EnumType cEnumeration n
-    CTypeOfExpr cExpression n -> 
-      error "process CTypeOfExpr not supported"
+    CEnumType cEnumeration n -> do
+      enum <- process cEnumeration
+      return $ SC.EnumType enum n
+    CTypeOfExpr cExpression n -> do
+      expr <- process cExpression 
+      return $ SC.TypeOfExpr expr n
     CTypeOfType cDeclaration n ->
       error "process CTypeOfType not supported"
 
+-- | Process 'C StructureUnion'
 instance Process (CStructureUnion a) a (SC.StructureUnion SC.SymId a) where
   process cStruct =
     case cStruct of
@@ -324,17 +340,29 @@ instance Process (CStructureUnion a) a (SC.StructureUnion SC.SymId a) where
         case mIdent of
           Nothing -> error "Struct without identifier"
           Just ident -> do
-            sym <- toSymbol ident
+            sym <- process ident
             decl <- process mDecl
             attrs <- process cAttr
             return $ SC.Struct tag sym decl attrs n
 
+-- | Process 'C Enumeration'
+instance Process (CEnumeration a) a (SC.Enumeration SC.SymId a) where
+  process (CEnum mIdent mAuxPair lCAttr n) =
+    case mIdent of
+      Nothing -> error "Cant process Enum without identifier" 
+      Just ident -> do
+        sym <- process ident
+        auxPair <- process mAuxPair
+        lAttr <- process lCAttr
+        return $ SC.Enum sym auxPair lAttr n
+ 
+-- | Process 'C Attribute'
 instance Process (CAttribute a) a (SC.Attribute SC.SymId a) where
   process cAttribute =
     case cAttribute of
       CAttr ident lCExpr n -> do
-        sym <- toSymbol ident
-        lExpr <- mapM process lCExpr
+        sym <- process ident
+        lExpr <- process lCExpr
         return $ SC.Attr sym lExpr 
 
 -- | Convert the 'C Expression'
@@ -356,7 +384,7 @@ instance Process (CExpression a) a (SC.Expression SC.SymId a) where
        return $ SC.Binary op lhs rhs 
      CCall fnExpr argsExpr n -> do 
        fn <- process fnExpr
-       args <- mapM process argsExpr
+       args <- process argsExpr
        return $ SC.Call fn args n
      CCast cDecl cExpr n -> do
        decl <- process cDecl
@@ -375,11 +403,11 @@ instance Process (CExpression a) a (SC.Expression SC.SymId a) where
        rhs <- process rhsExpr
        return $ SC.Index lhs rhs 
      CLabAddrExpr ident n -> do
-       sym <- toSymbol ident 
+       sym <- process ident 
        return $ SC.LabAddrExpr sym 
      CMember cExpr ident bool n -> do
        expr <- process cExpr 
-       sym <- toSymbol ident
+       sym <- process ident
        return $ SC.Member expr sym bool
      CSizeofExpr cExpr n -> do 
        expr <- process cExpr
@@ -394,7 +422,7 @@ instance Process (CExpression a) a (SC.Expression SC.SymId a) where
        expr <- process cExpr
        return $ SC.Unary op expr 
      CVar ident n -> do
-       sym <- toSymbol ident
+       sym <- process ident
        return $ SC.Var sym 
      _ -> error ("Expression not supported")
  
@@ -449,7 +477,7 @@ instance Process (CStatement a) a (SC.Statement SC.SymId a) where
       return $ SC.For init expr _expr stat n 
     -- Goto statement CGoto label
     CGoto ident n -> do
-      sym <- toSymbol ident
+      sym <- process ident
       return $ SC.Goto sym n 
     -- Computed goto CGotoPtr labelExpr
     CGotoPtr cExpr n -> do
@@ -463,9 +491,9 @@ instance Process (CStatement a) a (SC.Statement SC.SymId a) where
       return $ SC.If cond thenS mElse n
     -- An (attributed) label followed by a statement
     CLabel ident cStat lCAttr n -> do
-      sym <- toSymbol ident
+      sym <- process ident
       stat <- process cStat
-      lcAttr <- mapM process lCAttr
+      lcAttr <- process lCAttr
       return $ SC.Label sym stat lcAttr n	
     -- Return statement CReturn returnExpr
     CReturn mCExpr n -> do
@@ -487,13 +515,42 @@ instance Process (CStatement a) a (SC.Statement SC.SymId a) where
       error "CAsm statement is not support"
       -- CAsm (process cAsmStmt) () 
     -- Compound statement CCompound localLabels blockItems at
-    CCompound idents cCompoundBlockItem n ->
-      error "CCompound statement is not support"
-      -- let compoundBlockItem = process cCompoundBlockItem
-      -- in CCompound idents compoundBlockItem ()
+    CCompound idents cCompoundBlockItem n -> do
+      syms <- process idents
+      compoundBlockItem <- process cCompoundBlockItem
+      return $ SC.Compound syms compoundBlockItem n
 
-instance Process (CFunctionDef a) a t where
-  process = undefined
+-- | Process the 'C CompoundBlockItem'
+instance Process (CCompoundBlockItem a) a (SC.CompoundBlockItem SC.SymId a) where
+  process cCompound = case cCompound of
+    -- A statement
+    CBlockStmt cStat -> do
+      stat <- process cStat
+      return $ SC.BlockStmt stat
+    -- A local declaration
+    CBlockDecl cDecl -> do
+      decl <- process cDecl
+      return $ SC.BlockDecl decl 
+    -- A nested function (GNU C)
+    CNestedFunDef cFunDef -> do
+      fun <- process cFunDef
+      return $ SC.NestedFunDef fun
+
+-- | Process a 'C Function Definition'
+instance Process (CFunctionDef a) a () where
+  process cFun = do
+    fun <- process cFun 
+    addFunction fun 
+
+-- | Process a 'C Function Definition'
+instance Process (CFunctionDef a) a (SC.FunctionDef SC.SymId a) where
+  process (CFunDef lCDeclSpec cDeclr lCDecl cStat n) = do
+    ty <- toType lCDeclSpec
+    sym <- process cDeclr
+    pars <- process lCDecl
+    body <- process cStat
+    let fun = SC.FunDef ty sym pars body n
+    return fun 
 
 -- | Process Maybe versions
 instance (Process a n b) => Process (Maybe a) n (Maybe b) where
@@ -507,19 +564,19 @@ instance (Process a n b, Process c n d) =>
   process (Left a) = process a >>= return . Left
   process (Right b) = process b >>= return . Right
 
+-- | Process Pair versions
+instance (Process a n b, Process c n d) => 
+	Process (a,c) n (b,d) where
+  process (a,c) = do
+    b <- process a
+    d <- process c
+    return $ (b,d)
+
 -- | Process List versions
 instance (Process a n b) => Process [a] n [b] where
   process a = mapM process a
+
 {-
--- | Convert the 'C Enumeration'
-instance Convertible (CEnumeration NodeInfo) (CEnumeration ()) where
-    translate cEnum = case cEnum of
-	CEnum mIdent mAuxPair lAttr n ->
-	    let sclAttr = translate lAttr
-                auxPair = translate mAuxPair 
- 	    in CEnum mIdent auxPair sclAttr () 
-
-
 
 -- | Convert the 'C AssemblyStatement'
 instance Convertible (CAssemblyStatement NodeInfo) (CAssemblyStatement ()) where
@@ -540,16 +597,6 @@ instance Convertible (CAssemblyOperand NodeInfo) (CAssemblyOperand ()) where
 		expr = translate cExpr
 	    in CAsmOperand mIdent strLit expr ()
 
--- | Convert the 'C CompoundBlockItem'
-instance Convertible (CCompoundBlockItem NodeInfo) (CCompoundBlockItem ()) where
-    translate cCompound = case cCompound of
-	-- A statement
-	CBlockStmt cStat -> CBlockStmt (translate cStat)
-	-- A local declaration
-	CBlockDecl cDecl -> CBlockDecl (translate cDecl)
-	-- A nested function (GNU C)
-	CNestedFunDef cFunDef -> CNestedFunDef (translate cFunDef)
-
 -- | Convert the 'C BuiltinThing'
 instance Convertible (CBuiltinThing NodeInfo) (CBuiltinThing ()) where
     translate cBuiltinThing = case cBuiltinThing of
@@ -566,21 +613,6 @@ instance Convertible (CBuiltinThing NodeInfo) (CBuiltinThing ()) where
 		_decl = translate _cDecl
 	    in CBuiltinTypesCompatible decl _decl () 
 
--- | Convert the 'C Function Definition'
-instance Convertible (CFunctionDef NodeInfo) (CFunctionDef ()) where
-    translate cFun = case cFun of
-	CFunDef lCDeclSpec cDeclr lCDecl cStat n ->
-	    let lDeclSpec = translate lCDeclSpec
-		declr = translate cDeclr
-		lDecl = translate lCDecl
-		stat = translate cStat
-	    in CFunDef lDeclSpec declr lDecl stat ()
-
-
--- | Convert Pair versions
-instance (Convertible a b, Convertible c d) => 
-	Convertible (a,c) (b,d) where
-    translate (a,c) = (translate a, translate c)
 
 -- | Convert Triple versions
 instance (Convertible a b, Convertible c d, Convertible e f) => 

@@ -357,7 +357,7 @@ instance Process (CExpression a) a (SC.Expression SC.SymId a) where
      CCall fnExpr argsExpr n -> do 
        fn <- process fnExpr
        args <- mapM process argsExpr
-       return $ SC.Call fn args
+       return $ SC.Call fn args n
      CCast cDecl cExpr n -> do
        decl <- process cDecl
        expr <- process cExpr
@@ -387,8 +387,9 @@ instance Process (CExpression a) a (SC.Expression SC.SymId a) where
      CSizeofType cDecl n -> do
        decl <- process cDecl
        return $ SC.SizeofType decl 
-     CStatExpr cStat n ->
-       return $ SC.StatExpr cStat
+     CStatExpr cStat n -> do
+       stat <- process cStat
+       return $ SC.StatExpr stat
      CUnary op cExpr n -> do
        expr <- process cExpr
        return $ SC.Unary op expr 
@@ -407,78 +408,89 @@ instance Process (CConstant a) a SC.Constant where
           CStrConst cString n  -> SC.StrConst cString
     return const 
 
-{-
--- | Convert the 'C Statement'
-instance Convertible (CStatement NodeInfo) (CStatement ()) where
-    translate cStat = case cStat of
-	-- An (attributed) label followed by a statement
-	CLabel ident cStat lCAttr n ->
-	    let stat = translate cStat
-		lcAttr = translate lCAttr
-	    in CLabel ident stat lcAttr ()	
-	-- A statement of the form case expr : stmt
-	CCase cExpr cStat n -> 
-	    let expr = translate cExpr
-		stat = translate cStat
-	    in CCase expr stat ()
-	-- A case range of the form case lower ... upper : stmt
-	CCases cExpr _cExpr cStat n ->
-	    let expr = translate cExpr
-		_expr = translate _cExpr
-		stat = translate cStat
-	    in CCases expr _expr stat ()	
-	-- The default case default : stmt
-	CDefault cStat n ->
-	    let stat = translate cStat
-	    in CDefault stat ()
-	-- A simple statement, that is in C:
-	-- evaluating an expression with side-effects
- 	-- and discarding the result
-	CExpr mCExpr n ->
-	    let cExpr = translate mCExpr
-	    in CExpr cExpr ()
-	-- Compound statement CCompound localLabels blockItems at
-	CCompound idents cCompoundBlockItem n ->
-	    let compoundBlockItem = translate cCompoundBlockItem
-	    in CCompound idents compoundBlockItem ()
-	-- Conditional statement CIf ifExpr thenStmt maybeElseStmt at
-	CIf cIfExpr cThenStmt maybecElseStmt n ->
-	    let ifExpr = translate cIfExpr
-		thenStmt = translate cThenStmt
-		mElseStmt = translate maybecElseStmt 
-	    in CIf ifExpr thenStmt mElseStmt ()
-	-- Switch statement CSwitch selectorExpr switchStmt, 
-	-- where switchStmt usually includes case, break and default statements
-	CSwitch cExpr cStat n ->
-	    let expr = translate cExpr
-		stat = translate cStat
-	    in CSwitch expr stat ()
-	-- While or do-while statement CWhile guard stmt isDoWhile at
-	CWhile cExpr cStat isDoWhile n ->
-	    let guard = translate cExpr
-		stmt = translate cStat
-	    in CWhile guard stmt isDoWhile () 
-	-- For statement CFor init expr-2 expr-3 stmt,
-	-- where init is either a declaration or initializing expression
-	CFor cInit cExpr _cExpr cStat n -> 
-	    let init = translate cInit 
-		expr = translate cExpr 
-		_expr = translate _cExpr 
-		stat = translate cStat 
-	    in CFor init expr _expr stat () 
-	-- Goto statement CGoto label
-	CGoto ident n -> CGoto ident ()	
-	-- Computed goto CGotoPtr labelExpr
-	CGotoPtr cExpr n -> CGotoPtr (translate cExpr) ()
-	-- Continue statement
-	CCont n -> CCont ()
-	-- Break statement
-	CBreak n -> CBreak ()	
-	-- Return statement CReturn returnExpr
-	CReturn mCExpr n -> CReturn (translate mCExpr) ()
-	-- Assembly statement	
-	CAsm cAsmStmt n -> CAsm (translate cAsmStmt) () 
--}
+-- | Process the 'C Statement'
+instance Process (CStatement a) a (SC.Statement SC.SymId a) where
+  process cStat = case cStat of
+    -- Break statement
+    CBreak n -> return $ SC.Break n	
+    -- A statement of the form case expr : stmt
+    CCase cExpr cStat n -> do 
+      expr <- process cExpr
+      stat <- process cStat
+      return $ SC.Case expr stat n 
+    -- A case range of the form case lower ... upper : stmt
+    CCases cExpr _cExpr cStat n -> do
+      expr <- process cExpr
+      _expr <- process _cExpr
+      stat <- process cStat
+      return $ SC.Cases expr _expr stat n	
+    -- Continue statement
+    CCont n -> return $ SC.Cont n 
+    -- The default case default : stmt
+    CDefault cStat n -> do
+      stat <- process cStat
+      return $ SC.Default stat n
+    -- A simple statement, that is in C:
+    -- evaluating an expression with side-effects
+    -- and discarding the result
+    CExpr mCExpr n ->
+      case mCExpr of
+        Nothing -> error "Empty Expression Statement"
+        Just cExpr -> do
+          expr <- process cExpr
+          return $ SC.Expr expr n
+    -- For statement CFor init expr-2 expr-3 stmt,
+    -- where init is either a declaration or initializing expression
+    CFor cInit cExpr _cExpr cStat n -> do 
+      init <- process cInit 
+      expr <- process cExpr 
+      _expr <- process _cExpr 
+      stat <- process cStat 
+      return $ SC.For init expr _expr stat n 
+    -- Goto statement CGoto label
+    CGoto ident n -> do
+      sym <- toSymbol ident
+      return $ SC.Goto sym n 
+    -- Computed goto CGotoPtr labelExpr
+    CGotoPtr cExpr n -> do
+      expr <- process cExpr
+      return $ SC.GotoPtr expr n
+    -- Conditional statement CIf ifExpr thenStmt maybeElseStmt at
+    CIf cCond cThen mCElse n -> do
+      cond <- process cCond 
+      thenS <- process cThen
+      mElse  <- process mCElse
+      return $ SC.If cond thenS mElse n
+    -- An (attributed) label followed by a statement
+    CLabel ident cStat lCAttr n -> do
+      sym <- toSymbol ident
+      stat <- process cStat
+      lcAttr <- mapM process lCAttr
+      return $ SC.Label sym stat lcAttr n	
+    -- Return statement CReturn returnExpr
+    CReturn mCExpr n -> do
+      mExpr <- process mCExpr
+      return $ SC.Return mExpr n
+    -- Switch statement CSwitch selectorExpr switchStmt, 
+    -- where switchStmt usually includes case, break and default statements
+    CSwitch cExpr cStat n -> do
+      expr <- process cExpr
+      stat <- process cStat
+      return $ SC.Switch expr stat n
+    -- While or do-while statement CWhile guard stmt isDoWhile at
+    CWhile cExpr cStat isDoWhile n -> do
+      guard <- process cExpr
+      stmt <- process cStat
+      return $ SC.While guard stmt isDoWhile n
+    -- Assembly statement	
+    CAsm cAsmStmt n -> 
+      error "CAsm statement is not support"
+      -- CAsm (process cAsmStmt) () 
+    -- Compound statement CCompound localLabels blockItems at
+    CCompound idents cCompoundBlockItem n ->
+      error "CCompound statement is not support"
+      -- let compoundBlockItem = process cCompoundBlockItem
+      -- in CCompound idents compoundBlockItem ()
 
 instance Process (CFunctionDef a) a t where
   process = undefined
@@ -486,9 +498,14 @@ instance Process (CFunctionDef a) a t where
 -- | Process Maybe versions
 instance (Process a n b) => Process (Maybe a) n (Maybe b) where
   process Nothing = return Nothing
-  process (Just expr) = do 
-    _expr <- process expr
-    return $ Just _expr 
+  process (Just expr) =
+    process expr >>= return . Just 
+
+-- | Process Either versions
+instance (Process a n b, Process c n d) => 
+	Process (Either a c) n (Either b d) where
+  process (Left a) = process a >>= return . Left
+  process (Right b) = process b >>= return . Right
 
 -- | Process List versions
 instance (Process a n b) => Process [a] n [b] where
@@ -559,11 +576,6 @@ instance Convertible (CFunctionDef NodeInfo) (CFunctionDef ()) where
 		stat = translate cStat
 	    in CFunDef lDeclSpec declr lDecl stat ()
 
--- | Convert Either versions
-instance (Convertible a b, Convertible c d) => 
-	Convertible (Either a c) (Either b d) where
-    translate (Left a) = Left $ translate a 
-    translate (Right b) = Right $ translate b 
 
 -- | Convert Pair versions
 instance (Convertible a b, Convertible c d) => 

@@ -161,7 +161,7 @@ data Expression ident a
   | AlignofType (Declaration ident a)
   | Assign AssignOp (Expression ident a) (Expression ident a)
   | Binary BinaryOp (Expression ident a) (Expression ident a)
-  | Call (Expression ident a) [Expression ident a]
+  | Call (Expression ident a) [Expression ident a] a
   | Cast (Declaration ident a) (Expression ident a)
   | Cond (Expression ident a) (Maybe (Expression ident a)) (Expression ident a)
   | Const Constant
@@ -170,7 +170,7 @@ data Expression ident a
   | Member (Expression ident a) ident Bool
   | SizeofExpr (Expression ident a)
   | SizeofType (Declaration ident a)
-  | StatExpr (CStatement a) -- * TODO
+  | StatExpr (Statement ident a) 
   | Unary UnaryOp (Expression ident a)
   | Var ident
 -- Unsupported expressions:
@@ -186,4 +186,28 @@ data Constant
   | CharConst CChar 
   | FloatConst CFloat 
   | StrConst CString 
+  deriving Show
+
+data Statement ident a
+  = Break a
+  | Case (Expression ident a) (Statement ident a) a
+  | Cases (Expression ident a) (Expression ident a) (Statement ident a) a
+  | Cont a
+  | Default (Statement ident a) a
+  | Expr (Expression ident a) a -- * Removed the Maybe
+  | For (Either (Maybe (Expression ident a)) (Declaration ident a))
+        (Maybe (Expression ident a))
+        (Maybe (Expression ident a))
+        (Statement ident a)
+        a
+  | Goto ident a
+  | GotoPtr (Expression ident a) a
+  | If (Expression ident a) (Statement ident a) (Maybe (Statement ident a)) a
+  | Label ident (Statement ident a) [Attribute ident a] a
+  | Return (Maybe (Expression ident a)) a
+  | Switch (Expression ident a) (Statement ident a) a
+  | While (Expression ident a) (Statement ident a) Bool a
+  -- | Not supported
+  | Asm (CAssemblyStatement a) a
+  | Compound [Ident] [CCompoundBlockItem a] a
   deriving Show

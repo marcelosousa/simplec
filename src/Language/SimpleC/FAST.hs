@@ -33,17 +33,21 @@ Given the AST of the C file:
 -- which can be type declarations,
 -- initialization of global variables
 -- and definition of functions.
-data Program ident a = Prog {
-    decls   :: Declarations ident a
-  , defs    :: Definitions a
-  , asm_ext :: AsmExt a
-  } deriving Show
+data Program ident a
+  = Prog 
+    {
+      decls   :: Declarations ident a
+    , defs    :: Definitions a
+    , asm_ext :: AsmExt a
+    } deriving Show
 
-data ProgramData = ProgData {
-    code :: Program Ident ()
-  , symbols :: !Symbols
-  , cfgs :: !CFG
-  }
+data ProgramData
+  = ProgData 
+    {
+      code :: Program Ident ()
+    , symbols :: !Symbols
+    , cfgs :: !CFG
+    }
 
 data Symbols = SymInfo
 data CFG = CFG
@@ -54,21 +58,21 @@ type AsmExt a = [CStringLiteral a]
 type Declarations ident a = [Declaration ident a]
 type Definitions a = [CFunctionDef a]
 
-data Declaration ident a = 
-    Decl (Type ident a) (DeclElem ident a)
+data Declaration ident a 
+  = Decl (Type ident a) (DeclElem ident a)
   | TypeDecl (Type ident a)
   deriving Show
 
 -- | Just a type synonym
 type CDeclElem a = (Maybe (CDeclarator a), Maybe (CInitializer a), Maybe (CExpression a))
-data DeclElem ident a =
-  DeclElem (Declarator ident a) (Maybe (Initializer ident a))
+data DeclElem ident a
+  = DeclElem (Declarator ident a) (Maybe (Initializer ident a))
   deriving Show
 
 -- | C Declarator
-data Declarator ident a =
-  Declr (Maybe ident) [DerivedDeclarator ident a] 
-        (Maybe (CStringLiteral a)) [Attribute ident a] a
+data Declarator ident a
+  =  Declr (Maybe ident) [DerivedDeclarator ident a] 
+           (Maybe (CStringLiteral a)) [Attribute ident a] a
   deriving Show
 
 data DerivedDeclarator ident a
@@ -77,11 +81,25 @@ data DerivedDeclarator ident a
   | FunDeclr (Either [ident] ([Declaration ident a], Bool)) [Attribute ident a]
   deriving Show
 
-data ArraySize ident a = NoArrSize Bool | ArrSize Bool (Expression ident a)
+data ArraySize ident a
+  = NoArrSize Bool
+  | ArrSize Bool (Expression ident a)
   deriving Show
  
 data Initializer ident a
-  = InitExpr (Expression ident a) | InitList (CInitializerList a)
+  = InitExpr (Expression ident a) 
+  | InitList (InitializerList ident a)
+  deriving Show
+
+type CInitializerListEl a = ([CPartDesignator a],CInitializer a)
+type InitializerListEl ident a = ([PartDesignator ident a],Initializer ident a)
+type InitializerList ident a 
+  = [([PartDesignator ident a],Initializer ident a)]
+
+data PartDesignator ident a
+  = ArrDesig (Expression ident a)
+  | MemberDesig ident
+  | RangeDesig (Expression ident a) (Expression ident a)
   deriving Show
 
 data Type ident a
@@ -132,6 +150,7 @@ data TypeQualifier ident a
   | AttrQual  (Attribute ident a)
  deriving Show
 
+-- ^ TODO: Comment
 data Attribute ident a 
   =  Attr ident [Expression ident a] 
  deriving Show 

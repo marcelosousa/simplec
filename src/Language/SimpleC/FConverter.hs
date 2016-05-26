@@ -206,7 +206,30 @@ instance Process (CInitializer a) a (SC.Initializer SC.SymId a) where
       CInitExpr cExpr _ -> do
         expr <- process cExpr
         return $ SC.InitExpr expr 
-      CInitList list _ -> return $ SC.InitList list
+      CInitList list _ -> do
+        _list <- mapM process list
+        return $ SC.InitList _list
+
+-- | Process an InitializerList Element
+instance Process (SC.CInitializerListEl a) a (SC.InitializerListEl SC.SymId a) where
+  process (cPartList,cInit) = do
+    partList <- mapM process cPartList
+    init <- process cInit
+    return (partList,init)
+
+-- | Process the 'C Part Designator'
+instance Process (CPartDesignator a) a (SC.PartDesignator SC.SymId a) where
+  process cPartDes = case cPartDes of
+    CArrDesig cExpr n -> do
+      expr <- process cExpr
+      return $ SC.ArrDesig expr 
+    CMemberDesig ident n -> do
+      sym <- toSymbol ident
+      return $ SC.MemberDesig sym  
+    CRangeDesig cExpr cExpr' n -> do
+      expr <- process cExpr
+      expr' <- process cExpr'
+      return $ SC.RangeDesig expr expr' 
 
 -- | Process the 'C Derived Declarator'
 instance Process (CDerivedDeclarator a) a (SC.DerivedDeclarator SC.SymId a) where
@@ -479,13 +502,6 @@ instance Convertible (CEnumeration NodeInfo) (CEnumeration ()) where
                 auxPair = translate mAuxPair 
  	    in CEnum mIdent auxPair sclAttr () 
 
--- | Convert the 'C Part Designator'
-instance Convertible (CPartDesignator NodeInfo) (CPartDesignator ()) where
-    translate cPartDes = case cPartDes of
-	CArrDesig cExpr n -> CArrDesig (translate cExpr) () 
-	CMemberDesig ident n -> CMemberDesig ident ()
-	CRangeDesig cExpr cExpr' n ->
-	     CRangeDesig (translate cExpr) (translate cExpr') () 
 
 
 -- | Convert the 'C AssemblyStatement'

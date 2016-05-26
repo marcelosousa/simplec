@@ -71,7 +71,10 @@ incCounter = do
   put p {counter = c'}
   return c'
 
-  
+setScope :: Scope -> ProcessorOp a () 
+setScope _scope = do
+  p@ProcState{..} <- get
+  put p {scope = _scope}
 
 -- | Add Declarations: Either a TypeDecl or a Decl
 addDeclaration :: SC.Declaration SC.SymId a -> ProcessorOp a ()
@@ -97,7 +100,6 @@ addFunction fun = do
   let defs' = (SC.defs code)++[fun]
       code' = code {SC.defs=defs'}
   put p {code = code'} 
-
 
 -- | Main Functions
 processor :: CTranslationUnit a -> ProcessorState a
@@ -131,8 +133,12 @@ instance Process (CTranslationUnit a) a () where
 instance Process (CExternalDeclaration a) a () where
   process cextdecl =
     case cextdecl of
-      CDeclExt cdecl -> process cdecl
-      CFDefExt cfun  -> process cfun
+      CDeclExt cdecl -> do
+        setScope Global
+        process cdecl
+      CFDefExt cfun  -> do
+        setScope Local
+        process cfun
       CAsmExt cstr n -> error "TODO: Support CAsmExt"
 
 instance Process (CDeclaration a) a () where

@@ -5,14 +5,16 @@ module Language.SimpleC.FPrinter where
 import Language.C 
 import Language.C.System.GCC  -- preprocessor used
 import Language.C.Data.Ident
-import qualified Language.SimpleC.FAST as SC
+import Language.SimpleC.FAST
 import qualified Data.Map as M
 import Data.Map (Map)
 
-printProg :: (Show ident, Show a) => SC.Program ident a -> String
-printProg p@SC.Prog{..} = 
-  foldr printDecl "" decls
+ppProg :: (Show ident, Show a) => Program ident a -> String
+ppProg p@Prog{..} = 
+  foldr ppDecl "" decls
 
-printDecl :: (Show ident, Show a) => SC.Declaration ident a -> String -> String
-printDecl d s = show d ++ "\n" ++ s 
+ppDecl :: (Show ident, Show a) => Declaration ident a -> String -> String
+ppDecl d s = show d ++ "\n" ++ s
 
+ppFun :: (Show ident, Show a) =>  FunctionDef ident a -> String -> String
+ppFun = undefined

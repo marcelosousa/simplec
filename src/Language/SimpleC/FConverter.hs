@@ -62,6 +62,9 @@ type ProcessorOp node val = State (ProcessorState node) val
 newSymbol :: Ident -> ProcessorOp a SC.SymId
 newSymbol = undefined
 
+addType :: SC.Type SC.SymId a -> ProcessorOp a ()
+addType = undefined
+
 -- | Main Functions
 processor :: CTranslationUnit a -> SC.Program SC.SymId a
 processor cprog = 
@@ -87,7 +90,16 @@ instance Process (CExternalDeclaration a) a () where
 instance Process (CDeclaration a) a () where
   process (CDecl cdeclspec cdeclrs n) = do
     ty <- toType cdeclspec
-    return ()
+    if null cdeclrs
+    then addType ty
+    else undefined
+
+instance Process (CDeclaration a) a (SC.Declaration SC.SymId a) where
+  process (CDecl cdeclspec cdeclrs n) = do
+    ty <- toType cdeclspec
+    if null cdeclrs
+    then return $ SC.TypeDecl ty 
+    else undefined
 
 -- | CDeclarationSpecifier specifies a type
 toType :: [CDeclarationSpecifier a] -> ProcessorOp a (SC.Type SC.SymId a)
@@ -148,27 +160,29 @@ instance Process (CTypeSpecifier a) a (SC.TypeSpecifier SC.SymId a) where
       error "process CTypeOfType not supported"
 
 instance Process (CStructureUnion a) a (SC.StructureUnion SC.SymId a) where
-  process = undefined
+  process cStruct =
+    case cStruct of
+      CStruct tag mIdent mDecl cAttr n ->
+        case mIdent of
+          Nothing -> error "Struct without identifier"
+          Just ident -> do
+            sym <- newSymbol ident
+            decl <- process mDecl
+            return $ SC.Struct tag sym decl cAttr n
 
 instance Process (CFunctionDef a) a t where
   process = undefined
 
-flatten_decl :: [CDeclaration a] -> (SC.Declarations Ident a)
-flatten_decl = undefined
+-- | Process Maybe versions
+instance (Process a n b) => Process (Maybe a) n (Maybe b) where
+  process Nothing = return Nothing
+  process (Just expr) = do 
+    _expr <- process expr
+    return $ Just _expr 
 
-{-
-flatten_decl [] = []
-flatten_decl (d:ds) =
-  let decls = flatten_decl ds
-      decl = case d of
-        CDecl spec ids at -> 
-	        let norm_spec = normalize_decl_spec spec
-          in case ids of
-            [] -> [SC.TypeDecl norm_spec]
-            _  -> map (\i -> SC.Decl norm_spec i) ids
-  in decl ++ decls
-
--}  
+-- | Process List versions
+instance (Process a n b) => Process [a] n [b] where
+  process a = mapM process a
 {-
 -- | Convert the 'C External Declaration'
 instance Convertible (CExternalDeclaration NodeInfo) (CExternalDeclaration ()) where
@@ -500,11 +514,6 @@ instance Convertible Ident Ident where
 instance Convertible Bool Bool where
     translate = id 
 
--- | Convert Maybe versions
-instance (Convertible a b) => Convertible (Maybe a) (Maybe b) where
-    translate Nothing = Nothing
-    translate (Just expr) = Just $ translate expr 
-
 -- | Convert Either versions
 instance (Convertible a b, Convertible c d) => 
 	Convertible (Either a c) (Either b d) where
@@ -521,13 +530,4 @@ instance (Convertible a b, Convertible c d, Convertible e f) =>
 	Convertible (a,c,e) (b,d,f) where
     translate (a,c,e) = (translate a, translate c, translate e)
 
--- | Convert List versions
-instance (Convertible a b) => Convertible [a] [b] where
-    translate a = map translate a
 -}
-{-
--- | Convert the 'C ?'
-instance Convertible (C? NodeInfo) (C? ()) where
-    translate = undefined
--}
-

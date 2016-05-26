@@ -94,7 +94,7 @@ data TypeSpecifier ident a
   deriving Show
   
 data StructureUnion ident a 
-  = Struct CStructTag (Maybe ident) (Maybe [Declaration ident a]) [CAttribute a] a
+  = Struct CStructTag ident (Maybe [Declaration ident a]) [CAttribute a] a
   deriving Show
   
 -- ^ type qualifier

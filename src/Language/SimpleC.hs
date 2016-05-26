@@ -33,9 +33,9 @@ parseFile f  =
 --test :: FilePath -> IO a
 test f = do ctu <- parseFile f
             let sctu = fmap (\_ -> ()) ctu            
---            print ctu
-                p = FCon.processor sctu 
-            putStrLn $ printProg p
+            print sctu
+--                p = FCon.processor sctu 
+--            putStrLn $ printProg p
 
 --success :: SC.Program -> Bool
 --success (SC.Program _) = True

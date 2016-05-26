@@ -59,11 +59,18 @@ data Symbol = TypeSym | VarSym
 type ProcessorOp node val = State (ProcessorState node) val
 
 -- | API
-newSymbol :: Ident -> ProcessorOp a SC.SymId
-newSymbol = undefined
+toSymbol :: Ident -> ProcessorOp a SC.SymId
+toSymbol (Ident str hash nodeinfo) = do
+  p@ProcState{..} <- get
+  
 
+-- | Add Declarations: Either a TypeDecl or a Decl
 addType :: SC.Type SC.SymId a -> ProcessorOp a ()
 addType = undefined
+
+addDecl :: SC.Type SC.SymId a -> SC.DeclElem SC.SymId a -> ProcessorOp a ()
+addDecl = undefined
+
 
 -- | Main Functions
 processor :: CTranslationUnit a -> SC.Program SC.SymId a
@@ -92,7 +99,10 @@ instance Process (CDeclaration a) a () where
     ty <- toType cdeclspec
     if null cdeclrs
     then addType ty
-    else undefined
+    else do
+      -- | Process the C declarators
+      declrs <- mapM process cdeclrs
+      mapM_ (addDecl ty) declrs 
 
 instance Process (CDeclaration a) a (SC.Declaration SC.SymId a) where
   process (CDecl cdeclspec cdeclrs n) = do
@@ -118,8 +128,71 @@ toType decl_spec = do
          CTypeSpec    t -> do
            _t <- process t
            return (st,_t:ty,tyqual)
-         CTypeQual    q -> return (st,ty,q:tyqual)
- 
+         CTypeQual    q -> do
+           _q <- process q
+           return (st,ty,_q:tyqual)
+
+-- | Process a Declaration Element
+instance Process (SC.CDeclElem a) a (SC.DeclElem SC.SymId a) where
+  process (mCDeclr, mCInit, mCSizeExpr) =
+    case mCDeclr of
+      Nothing -> error "empty declarator"
+      Just cdeclr ->
+        case mCSizeExpr of
+          Nothing -> do
+            declr <- process cdeclr
+            mInit <- process mCInit
+            return $ SC.DeclElem declr mInit
+          Just _ -> error "Process CDeclElem not supported"
+
+-- | Process a Declarator
+instance Process (CDeclarator a) a (SC.Declarator SC.SymId a) where
+  process cDeclr =
+    case cDeclr of 
+      CDeclr mIdent cDerDeclr cStr cAttr a ->
+        case mIdent of
+          Nothing -> error "Declarator without identifier"
+          Just ident -> do
+            sym <- toSymbol ident
+            attr <- process cAttr
+            derDeclr <- process cDerDeclr
+            return $ SC.Declr sym derDeclr cStr attr a
+   
+-- | Process an Initializer
+instance Process (CInitializer a) a (SC.Initializer SC.SymId a) where
+  process cInit =
+    case cInit of
+      CInitExpr expr _ -> return $ SC.InitExpr expr 
+      CInitList list _ -> return $ SC.InitList list
+
+-- | Process the 'C Derived Declarator'
+instance Process (CDerivedDeclarator a) a (SC.DerivedDeclarator SC.SymId a) where
+  process cDerDeclr = 
+    case cDerDeclr of
+      CPtrDeclr cTyQual _ -> do
+        tyQual <- mapM process cTyQual
+        return $ SC.PtrDeclr tyQual
+      CArrDeclr cTyQual cArrSize _ -> do
+        tyQual <- mapM process cTyQual
+        arrSize <- process cArrSize
+        return $ SC.ArrDeclr tyQual arrSize
+      CFunDeclr eth cAttr _ -> do
+        attrs <- mapM process cAttr
+        case eth of
+          Left idents -> do
+            syms <- mapM toSymbol idents
+            return $ SC.FunDeclr (Left syms) attrs
+          Right (cdecls, b) -> do
+            decls <- mapM process cdecls
+            return $ SC.FunDeclr (Right (decls,b)) attrs
+
+-- | Process the 'C Array Size' 
+instance Process (CArraySize a) a (SC.ArraySize SC.SymId a) where
+  process cArrSize =
+    case cArrSize of
+      CNoArrSize b -> return $ SC.NoArrSize b
+      CArrSize b expr -> return $ SC.ArrSize b expr
+
 -- | Process the 'C Storage Specifier' 
 instance Process (CStorageSpecifier a) a SC.StorageSpecifier where
   process cStorSpec = do 
@@ -131,6 +204,18 @@ instance Process (CStorageSpecifier a) a SC.StorageSpecifier where
           CTypedef n  -> SC.Typedef
           CThread n   -> SC.Thread
     return storSpec 
+
+-- | Convert the 'C Type Qualifier'
+instance Process (CTypeQualifier a) a (SC.TypeQualifier SC.SymId a) where
+  process cTypeQualifier = 
+    case cTypeQualifier of
+      CConstQual n  -> return $ SC.ConstQual  
+      CVolatQual n  -> return $ SC.VolatQual 
+      CRestrQual n  -> return $ SC.RestrQual 
+      CInlineQual n -> return $ SC.InlineQual
+      CAttrQual cAttribute -> do
+         attr <- process cAttribute
+         return $ SC.AttrQual attr 
 
 -- | Convert the 'C Type Specifier'
 instance Process (CTypeSpecifier a) a (SC.TypeSpecifier SC.SymId a) where
@@ -147,7 +232,7 @@ instance Process (CTypeSpecifier a) a (SC.TypeSpecifier SC.SymId a) where
     CBoolType n	   -> return $ SC.BoolType
     CComplexType n -> return $ SC.ComplexType
     CTypeDef ident n -> do
-      sym <- newSymbol ident
+      sym <- toSymbol ident
       return $ SC.TypeDef sym n
     CSUType cStructureUnion n -> do
       structOrUnion <- process cStructureUnion
@@ -166,9 +251,17 @@ instance Process (CStructureUnion a) a (SC.StructureUnion SC.SymId a) where
         case mIdent of
           Nothing -> error "Struct without identifier"
           Just ident -> do
-            sym <- newSymbol ident
+            sym <- toSymbol ident
             decl <- process mDecl
-            return $ SC.Struct tag sym decl cAttr n
+            attrs <- process cAttr
+            return $ SC.Struct tag sym decl attrs n
+
+instance Process (CAttribute a) a (SC.Attribute SC.SymId a) where
+  process cAttribute =
+    case cAttribute of
+      CAttr ident lCExpr n -> do
+        sym <- toSymbol ident
+        return $ SC.Attr sym lCExpr
 
 instance Process (CFunctionDef a) a t where
   process = undefined
@@ -231,14 +324,6 @@ instance Convertible (CTypeSpecifier NodeInfo) (CTypeSpecifier ()) where
 	CTypeOfType cDeclaration n ->
 		CTypeOfType (translate cDeclaration) ()
 
--- | Convert the 'C Type Qualifier'
-instance Convertible (CTypeQualifier NodeInfo) (CTypeQualifier ()) where
-    translate cTypeQualifier = case cTypeQualifier of
-	CConstQual n  -> CConstQual () 
-	CVolatQual n  -> CVolatQual ()
-	CRestrQual n  -> CRestrQual ()
-	CInlineQual n -> CInlineQual ()
-	CAttrQual cAttribute -> CAttrQual $ translate cAttribute
 
 -- | Convert the 'C Structure Union'
 instance Convertible (CStructureUnion NodeInfo) (CStructureUnion ()) where

@@ -52,14 +52,36 @@ type AsmExt a = [CStringLiteral a]
 type Declarations ident a = [Declaration ident a]
 type Definitions a = [CFunctionDef a]
 
-type DeclElem a = (Maybe (CDeclarator a), Maybe (CInitializer a), Maybe (CExpression a))
 data Declaration ident a = 
-    Decl (Type ident a) (DeclElem a)
+    Decl (Type ident a) (DeclElem ident a)
   | TypeDecl (Type ident a)
   deriving Show
 
+type CDeclElem a = (Maybe (CDeclarator a), Maybe (CInitializer a), Maybe (CExpression a))
+data DeclElem ident a =
+  DeclElem (Declarator ident a) (Maybe (Initializer ident a))
+  deriving Show
+
+-- | C Declarator
+data Declarator ident a =
+  Declr ident [DerivedDeclarator ident a] (Maybe (CStringLiteral a)) [Attribute ident a] a
+  deriving Show
+
+data DerivedDeclarator ident a
+  = PtrDeclr [TypeQualifier ident a]
+  | ArrDeclr [TypeQualifier ident a] (ArraySize ident a)
+  | FunDeclr (Either [ident] ([Declaration ident a], Bool)) [Attribute ident a]
+  deriving Show
+
+data ArraySize ident a = NoArrSize Bool | ArrSize Bool (CExpression a)
+  deriving Show
+ 
+data Initializer ident a
+  = InitExpr (CExpression a) | InitList (CInitializerList a)
+  deriving Show
+
 data Type ident a
-  = Type StorageSpecifier [CTypeQualifier a] [TypeSpecifier ident a] 
+  = Type StorageSpecifier [TypeQualifier ident a] [TypeSpecifier ident a] 
   deriving Show
 
 -- ^ storage-class specifier or typedef
@@ -94,13 +116,18 @@ data TypeSpecifier ident a
   deriving Show
   
 data StructureUnion ident a 
-  = Struct CStructTag ident (Maybe [Declaration ident a]) [CAttribute a] a
+  = Struct CStructTag ident (Maybe [Declaration ident a]) [Attribute ident a] a
   deriving Show
   
 -- ^ type qualifier
-data TypeQualifier a 
+data TypeQualifier ident a 
   = ConstQual 
   | VolatQual 
   | RestrQual 
   | InlineQual
-  | CAttrQual  (CAttribute a)
+  | AttrQual  (Attribute ident a)
+ deriving Show
+
+data Attribute ident a 
+  =  Attr ident [CExpression a] 
+ deriving Show 

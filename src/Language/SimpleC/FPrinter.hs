@@ -11,10 +11,21 @@ import Data.Map (Map)
 
 ppProg :: (Show ident, Show a) => Program ident a -> String
 ppProg p@Prog{..} = 
-  foldr ppDecl "" decls
+  let pp_decls = foldr ppDecl "" decls
+      pp_defs  = foldr ppDefs "" defs
+  in pp_decls ++ pp_defs
 
 ppDecl :: (Show ident, Show a) => Declaration ident a -> String -> String
 ppDecl d s = show d ++ "\n" ++ s
 
-ppFun :: (Show ident, Show a) =>  FunctionDef ident a -> String -> String
-ppFun = undefined
+ppDefs :: (Show ident, Show a) => FunctionDef ident a -> String -> String
+ppDefs fun cont = ppFun fun ++ "\n" ++ cont
+ 
+ppFun :: (Show ident, Show a) =>  FunctionDef ident a -> String
+ppFun fun@FunDef{..} =
+  let pp_retty = show ret_ty
+      pp_sym   = show symbol
+      pp_params = show params
+      pp_body = show body
+  in pp_retty ++ " " ++ pp_sym ++ pp_params ++ "\n" ++ pp_body
+

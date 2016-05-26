@@ -59,11 +59,13 @@ type Declarations ident a = [Declaration ident a]
 type Definitions  ident a = [FunctionDef ident a]
 
 data FunctionDef ident a
-  = FunDef (Type ident a)        -- return type?
-           (Declarator ident a)  -- identifer?
-           [Declaration ident a] -- parameters?
-           (Statement ident a)   -- body?
-           a
+  = FunDef 
+  { ret_ty :: Type ident a          -- return type?
+  , symbol :: Declarator ident a    -- identifer?
+  , params :: [Declaration ident a] -- parameters?
+  , body   :: Statement ident a     -- body?
+  , loc    :: a
+  }
   deriving Show
 
 data Declaration ident a 

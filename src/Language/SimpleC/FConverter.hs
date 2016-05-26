@@ -203,7 +203,9 @@ instance Process (CDeclarator a) a (SC.Declarator SC.SymId a) where
 instance Process (CInitializer a) a (SC.Initializer SC.SymId a) where
   process cInit =
     case cInit of
-      CInitExpr expr _ -> return $ SC.InitExpr expr 
+      CInitExpr cExpr _ -> do
+        expr <- process cExpr
+        return $ SC.InitExpr expr 
       CInitList list _ -> return $ SC.InitList list
 
 -- | Process the 'C Derived Declarator'
@@ -237,7 +239,9 @@ instance Process (CArraySize a) a (SC.ArraySize SC.SymId a) where
   process cArrSize =
     case cArrSize of
       CNoArrSize b -> return $ SC.NoArrSize b
-      CArrSize b expr -> return $ SC.ArrSize b expr
+      CArrSize b cExpr -> do
+        expr <- process cExpr
+        return $ SC.ArrSize b expr
 
 -- | Process the 'C Storage Specifier' 
 instance Process (CStorageSpecifier a) a SC.StorageSpecifier where
@@ -307,205 +311,80 @@ instance Process (CAttribute a) a (SC.Attribute SC.SymId a) where
     case cAttribute of
       CAttr ident lCExpr n -> do
         sym <- toSymbol ident
-        return $ SC.Attr sym lCExpr
-
-instance Process (CFunctionDef a) a t where
-  process = undefined
-
--- | Process Maybe versions
-instance (Process a n b) => Process (Maybe a) n (Maybe b) where
-  process Nothing = return Nothing
-  process (Just expr) = do 
-    _expr <- process expr
-    return $ Just _expr 
-
--- | Process List versions
-instance (Process a n b) => Process [a] n [b] where
-  process a = mapM process a
-{-
--- | Convert the 'C External Declaration'
-instance Convertible (CExternalDeclaration NodeInfo) (CExternalDeclaration ()) where
-    translate cdecl = case cdecl of
-	CDeclExt cDeclaration	  -> CDeclExt $ translate cDeclaration
-	CFDefExt cFunctionDef	  -> CFDefExt $ translate cFunctionDef 
-	CAsmExt  cStringLiteral n -> CAsmExt  (translate cStringLiteral) ()
- 
--- | Convert the 'C Declaration'
---   CDecl [CDeclarationSpecifier a] [(Maybe (CDeclarator a), Maybe (CInitializer a), Maybe (CExpression a))] a	
-instance Convertible (CDeclaration NodeInfo) (CDeclaration ()) where
-    translate (CDecl cDeclSpecifiers cDeclts n) =
-	let scDeclSpecifiers = translate cDeclSpecifiers
-	    scDeclts         = translate cDeclts
-        in CDecl scDeclSpecifiers scDeclts ()
-
--- | Convert the 'C Declaration Specifier'
-instance Convertible (CDeclarationSpecifier NodeInfo) (CDeclarationSpecifier ()) where
-    translate cdeclspec = case cdeclspec of
-	CStorageSpec cStorageSpecifier -> CStorageSpec $ translate cStorageSpecifier	
-	CTypeSpec cTypeSpecifier -> CTypeSpec $ translate cTypeSpecifier
-	CTypeQual cTypeQualifier -> CTypeQual $ translate cTypeQualifier
-
-
--- | Convert the 'C Type Specifier'
-instance Convertible (CTypeSpecifier NodeInfo) (CTypeSpecifier ()) where
-    translate ctyspec = case ctyspec of
-	CVoidType n	  -> CVoidType ()	
-	CCharType n	  -> CCharType ()	
-	CShortType n	  -> CShortType ()	
-	CIntType n	  -> CIntType ()
-	CLongType n	  -> CLongType ()	
-	CFloatType n	  -> CFloatType ()	
-	CDoubleType n	  -> CDoubleType ()	
-	CSignedType n	  -> CSignedType ()	
-	CUnsigType n	  -> CUnsigType ()	
-	CBoolType n	  -> CBoolType ()	
-	CComplexType n	  -> CComplexType ()	
-	CTypeDef ident n  -> CTypeDef ident ()
-	CSUType cStructureUnion  n ->
-		CSUType (translate cStructureUnion) ()
-	CEnumType cEnumeration   n ->
-		CEnumType (translate cEnumeration) ()
-	CTypeOfExpr cExpression  n ->
-		CTypeOfExpr (translate cExpression) ()
-	CTypeOfType cDeclaration n ->
-		CTypeOfType (translate cDeclaration) ()
-
-
--- | Convert the 'C Structure Union'
-instance Convertible (CStructureUnion NodeInfo) (CStructureUnion ()) where
-    translate cStruct = case cStruct of
-	CStruct cStructTag mIdent mCDeclList cAttrList n ->
-	    let scAttrList = translate cAttrList
-		scCDeclList = translate mCDeclList 
-	    in CStruct cStructTag mIdent scCDeclList scAttrList ()  
-
--- | Convert the 'C Enumeration'
-instance Convertible (CEnumeration NodeInfo) (CEnumeration ()) where
-    translate cEnum = case cEnum of
-	CEnum mIdent mAuxPair lAttr n ->
-	    let sclAttr = translate lAttr
-                auxPair = translate mAuxPair 
- 	    in CEnum mIdent auxPair sclAttr () 
+        lExpr <- mapM process lCExpr
+        return $ SC.Attr sym lExpr 
 
 -- | Convert the 'C Expression'
-instance Convertible (CExpression NodeInfo) (CExpression ()) where
-    translate cExpr = case cExpr of
-	CComma lCExpr n -> CComma (translate lCExpr) () 
-	CAssign cAssignOp lhsExpr rhsExpr n ->
-	    let lhs = translate lhsExpr
-		rhs = translate rhsExpr
-	    in CAssign cAssignOp lhs rhs ()
-	CCond condExpr mThenExpr elseExpr n ->
-	    let cond = translate condExpr
-		mThen = translate mThenExpr
-		_else = translate elseExpr
-	    in CCond cond mThen _else ()
-	CBinary cBinaryOp lhsExpr rhsExpr n -> 
-	    let lhs = translate lhsExpr
-		rhs = translate rhsExpr
-	    in CBinary cBinaryOp lhs rhs ()
-	CCast cDecl cExpr n ->
-	    let sCDecl = translate cDecl
-		sCExpr = translate cExpr
-	    in CCast sCDecl sCExpr ()	 
-	CUnary cUnaryOp cExpr n ->
-	    let sCExpr = translate cExpr
-	    in CUnary cUnaryOp sCExpr ()	 
-	CSizeofExpr cExpr n ->  
-	    let sCExpr = translate cExpr
-	    in CSizeofExpr sCExpr ()	 
-	CSizeofType cDecl n ->  
-	    let sCDecl = translate cDecl
-	    in CSizeofType sCDecl ()	 
-	CAlignofExpr cExpr n ->  
-	    let sCExpr = translate cExpr
-	    in CAlignofExpr sCExpr ()	 
-	CAlignofType cDecl n ->  
-	    let sCDecl = translate cDecl
-	    in CAlignofType sCDecl ()	 
-	CComplexReal cExpr n ->  
-	    let sCExpr = translate cExpr
-	    in CComplexReal sCExpr ()	 
-	CComplexImag cExpr n ->  
-	    let sCExpr = translate cExpr
-	    in CComplexImag sCExpr ()	 
-	CIndex lhsExpr rhsExpr n ->	 
-	    let lhs = translate lhsExpr
-		rhs = translate rhsExpr
-	    in CIndex lhs rhs ()
-	CCall fnExpr argsExpr n	-> 
-	    let fn = translate fnExpr
-		args = translate argsExpr
-	    in CCall fn args ()
-	CMember cExpr ident bool n ->
-	    let expr = translate cExpr 
-	    in CMember expr ident bool ()
-	CVar ident n -> CVar ident () 
-	CConst cConstant -> CConst $ translate cConstant
-	CCompoundLit cDecl cInitList n ->
-	    let decl = translate cDecl 
-		initList = translate cInitList 
-	    in CCompoundLit decl initList ()
-	CStatExpr cStat n ->
-	    let stat = translate cStat 
-	    in CStatExpr stat ()
-	CLabAddrExpr ident n -> CLabAddrExpr ident ()	
-	CBuiltinExpr cBuiltinThing ->
-	    let builtin = translate cBuiltinThing 
-	    in CBuiltinExpr builtin 
-
--- | Convert the 'C Attribute'
-instance Convertible (CAttribute NodeInfo) (CAttribute ()) where
-    translate cAttr = case cAttr of
-	CAttr ident lCExpr n -> CAttr ident (translate lCExpr) () 
-
--- | Convert the 'C Declarator'
-instance Convertible (CDeclarator NodeInfo) (CDeclarator ()) where
-    translate cDeclr = case cDeclr of 
-	CDeclr mIdent lCDerDeclr mCStringLit lCAttr n ->
-	     let slCDerDeclr = translate lCDerDeclr
-	         smCStringLit = translate mCStringLit
-		 slCAttr = translate lCAttr
-	     in CDeclr mIdent slCDerDeclr smCStringLit slCAttr ()
-
--- | Convert the 'C DerivedDeclarator'
-instance Convertible (CDerivedDeclarator NodeInfo) (CDerivedDeclarator ()) where
-    translate cDerDeclr = case cDerDeclr of
-	CPtrDeclr lCTypeQualifier n -> CPtrDeclr (translate lCTypeQualifier) ()	
-	CArrDeclr lCTypeQualifier cArraySize n ->
-	     let slCTypeQualifier = translate lCTypeQualifier
-		 scArraySize = translate cArraySize
-	     in CArrDeclr slCTypeQualifier scArraySize ()
-	CFunDeclr e lCAttr n -> CFunDeclr (translate e) (translate lCAttr) () 
-
--- | Convert the 'C ArraySize'
-instance Convertible (CArraySize NodeInfo) (CArraySize ()) where
-    translate cArraySize = case cArraySize of
-	CNoArrSize b     -> CNoArrSize b	
-	CArrSize b cExpr -> CArrSize b $ translate cExpr 
-
--- | Convert the 'C Initializer'
-instance Convertible (CInitializer NodeInfo) (CInitializer ()) where
-    translate cInit = case cInit of
-	CInitExpr cExpr n -> CInitExpr (translate cExpr) () 
-	CInitList cInitList n -> CInitList (translate cInitList) () 
-
--- | Convert the 'C Part Designator'
-instance Convertible (CPartDesignator NodeInfo) (CPartDesignator ()) where
-    translate cPartDes = case cPartDes of
-	CArrDesig cExpr n -> CArrDesig (translate cExpr) () 
-	CMemberDesig ident n -> CMemberDesig ident ()
-	CRangeDesig cExpr cExpr' n ->
-	     CRangeDesig (translate cExpr) (translate cExpr') () 
-
+instance Process (CExpression a) a (SC.Expression SC.SymId a) where
+  process cExpr = case cExpr of
+     CAlignofExpr cExpr n -> do 
+       expr <- process cExpr
+       return $ SC.AlignofExpr expr	 
+     CAlignofType cDecl n -> do
+       decl <- process cDecl
+       return $ SC.AlignofType decl	 
+     CAssign op lhsExpr rhsExpr n -> do
+       lhs <- process lhsExpr
+       rhs <- process rhsExpr
+       return $ SC.Assign op lhs rhs 
+     CBinary op lhsExpr rhsExpr n -> do
+       lhs <- process lhsExpr
+       rhs <- process rhsExpr
+       return $ SC.Binary op lhs rhs 
+     CCall fnExpr argsExpr n -> do 
+       fn <- process fnExpr
+       args <- mapM process argsExpr
+       return $ SC.Call fn args
+     CCast cDecl cExpr n -> do
+       decl <- process cDecl
+       expr <- process cExpr
+       return $ SC.Cast decl expr	 
+     CCond condExpr mThenExpr elseExpr n -> do
+       cond <- process condExpr
+       mThen <- process mThenExpr
+       _else <- process elseExpr
+       return $ SC.Cond cond mThen _else
+     CConst cConst -> do
+       const <- process cConst
+       return $ SC.Const const 
+     CIndex lhsExpr rhsExpr n -> do 
+       lhs <- process lhsExpr
+       rhs <- process rhsExpr
+       return $ SC.Index lhs rhs 
+     CLabAddrExpr ident n -> do
+       sym <- toSymbol ident 
+       return $ SC.LabAddrExpr sym 
+     CMember cExpr ident bool n -> do
+       expr <- process cExpr 
+       sym <- toSymbol ident
+       return $ SC.Member expr sym bool
+     CSizeofExpr cExpr n -> do 
+       expr <- process cExpr
+       return $ SC.SizeofExpr expr 
+     CSizeofType cDecl n -> do
+       decl <- process cDecl
+       return $ SC.SizeofType decl 
+     CStatExpr cStat n ->
+       return $ SC.StatExpr cStat
+     CUnary op cExpr n -> do
+       expr <- process cExpr
+       return $ SC.Unary op expr 
+     CVar ident n -> do
+       sym <- toSymbol ident
+       return $ SC.Var sym 
+     _ -> error ("Expression not supported")
+ 
 -- | Convert the 'C Constant'
-instance Convertible (CConstant NodeInfo) (CConstant ()) where
-    translate cConst = case cConst of
-	CIntConst cInteger n -> CIntConst cInteger () 
-	CCharConst cChar n   -> CCharConst cChar ()	 
-	CFloatConst cFloat n -> CFloatConst cFloat () 	 
-	CStrConst cString n  -> CStrConst cString ()
+instance Process (CConstant a) a SC.Constant where
+  process cConst = do 
+    let const = case cConst of
+          CIntConst cInteger n -> SC.IntConst cInteger
+          CCharConst cChar n   -> SC.CharConst cChar 
+          CFloatConst cFloat n -> SC.FloatConst cFloat 
+          CStrConst cString n  -> SC.StrConst cString
+    return const 
 
+{-
 -- | Convert the 'C Statement'
 instance Convertible (CStatement NodeInfo) (CStatement ()) where
     translate cStat = case cStat of
@@ -576,6 +455,38 @@ instance Convertible (CStatement NodeInfo) (CStatement ()) where
 	CReturn mCExpr n -> CReturn (translate mCExpr) ()
 	-- Assembly statement	
 	CAsm cAsmStmt n -> CAsm (translate cAsmStmt) () 
+-}
+
+instance Process (CFunctionDef a) a t where
+  process = undefined
+
+-- | Process Maybe versions
+instance (Process a n b) => Process (Maybe a) n (Maybe b) where
+  process Nothing = return Nothing
+  process (Just expr) = do 
+    _expr <- process expr
+    return $ Just _expr 
+
+-- | Process List versions
+instance (Process a n b) => Process [a] n [b] where
+  process a = mapM process a
+{-
+-- | Convert the 'C Enumeration'
+instance Convertible (CEnumeration NodeInfo) (CEnumeration ()) where
+    translate cEnum = case cEnum of
+	CEnum mIdent mAuxPair lAttr n ->
+	    let sclAttr = translate lAttr
+                auxPair = translate mAuxPair 
+ 	    in CEnum mIdent auxPair sclAttr () 
+
+-- | Convert the 'C Part Designator'
+instance Convertible (CPartDesignator NodeInfo) (CPartDesignator ()) where
+    translate cPartDes = case cPartDes of
+	CArrDesig cExpr n -> CArrDesig (translate cExpr) () 
+	CMemberDesig ident n -> CMemberDesig ident ()
+	CRangeDesig cExpr cExpr' n ->
+	     CRangeDesig (translate cExpr) (translate cExpr') () 
+
 
 -- | Convert the 'C AssemblyStatement'
 instance Convertible (CAssemblyStatement NodeInfo) (CAssemblyStatement ()) where
@@ -631,19 +542,6 @@ instance Convertible (CFunctionDef NodeInfo) (CFunctionDef ()) where
 		lDecl = translate lCDecl
 		stat = translate cStat
 	    in CFunDef lDeclSpec declr lDecl stat ()
-
--- | Convert the 'C String Literal'
-instance Convertible (CStringLiteral NodeInfo) (CStringLiteral ()) where
-    translate cStrLit = case cStrLit of
-	CStrLit cStr n -> CStrLit cStr () 
-
--- | Convert the 'C Ident'
-instance Convertible Ident Ident where
-    translate = id 
-
--- | Convert the 'C Bool'
-instance Convertible Bool Bool where
-    translate = id 
 
 -- | Convert Either versions
 instance (Convertible a b, Convertible c d) => 

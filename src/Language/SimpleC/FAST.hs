@@ -8,13 +8,15 @@ import Data.Array
 import Language.C.Syntax.AST
 import Language.C.Data.Node (NodeInfo)
 import Language.C.Data.Ident
+import Language.C.Syntax.Constants
 
 -- Symbol Id
 type SymId = Int
    
-type OpCode  = CBinaryOp
-type UOpCode = CUnaryOp
+type BinaryOp = CBinaryOp
+type UnaryOp = CUnaryOp
 type AssignOp = CAssignOp
+type StructTag = CStructTag
 type At = NodeInfo 
 
 
@@ -75,11 +77,11 @@ data DerivedDeclarator ident a
   | FunDeclr (Either [ident] ([Declaration ident a], Bool)) [Attribute ident a]
   deriving Show
 
-data ArraySize ident a = NoArrSize Bool | ArrSize Bool (CExpression a)
+data ArraySize ident a = NoArrSize Bool | ArrSize Bool (Expression ident a)
   deriving Show
  
 data Initializer ident a
-  = InitExpr (CExpression a) | InitList (CInitializerList a)
+  = InitExpr (Expression ident a) | InitList (CInitializerList a)
   deriving Show
 
 data Type ident a
@@ -110,15 +112,15 @@ data TypeSpecifier ident a
   | BoolType    
   | ComplexType 
   | Int128Type  
-  | SUType      (StructureUnion ident a)      -- ^ Struct or Union specifier
-  | EnumType    (CEnumeration a)    a      -- ^ Enumeration specifier
+  | SUType      (StructureUnion ident a) -- ^ Struct or Union specifier
+  | EnumType    (CEnumeration a)    a    -- ^ Enumeration specifier
   | TypeDef     ident        a      -- ^ Typedef name
-  | TypeOfExpr  (CExpression a)  a  -- ^ @typeof(expr)@
+  | TypeOfExpr  (Expression ident a)  a  -- ^ @typeof(expr)@
   | TypeOfType  (CDeclaration a) a  -- ^ @typeof(type)@
   deriving Show
   
 data StructureUnion ident a 
-  = Struct CStructTag ident (Maybe [Declaration ident a]) [Attribute ident a] a
+  = Struct StructTag ident (Maybe [Declaration ident a]) [Attribute ident a] a
   deriving Show
   
 -- ^ type qualifier
@@ -131,5 +133,38 @@ data TypeQualifier ident a
  deriving Show
 
 data Attribute ident a 
-  =  Attr ident [CExpression a] 
+  =  Attr ident [Expression ident a] 
  deriving Show 
+
+-- ^ Expression
+data Expression ident a
+  = AlignofExpr (Expression ident a)
+  | AlignofType (Declaration ident a)
+  | Assign AssignOp (Expression ident a) (Expression ident a)
+  | Binary BinaryOp (Expression ident a) (Expression ident a)
+  | Call (Expression ident a) [Expression ident a]
+  | Cast (Declaration ident a) (Expression ident a)
+  | Cond (Expression ident a) (Maybe (Expression ident a)) (Expression ident a)
+  | Const Constant
+  | Index (Expression ident a) (Expression ident a)
+  | LabAddrExpr ident 
+  | Member (Expression ident a) ident Bool
+  | SizeofExpr (Expression ident a)
+  | SizeofType (Declaration ident a)
+  | StatExpr (CStatement a) -- * TODO
+  | Unary UnaryOp (Expression ident a)
+  | Var ident
+-- Unsupported expressions:
+  | BuiltinExpr (CBuiltinThing a)
+  | ComplexReal (CExpression a)
+  | ComplexImag (CExpression a)
+  | CompoundLit (CDeclaration a) (CInitializerList a)
+  | Comma [CExpression a]
+  deriving Show
+
+data Constant
+  = IntConst CInteger 
+  | CharConst CChar 
+  | FloatConst CFloat 
+  | StrConst CString 
+  deriving Show

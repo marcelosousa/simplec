@@ -36,7 +36,7 @@ test f = do ctu <- parseFile f
                 st = FCon.processor sctu 
             -- print sctu
             putStrLn $ printProg $ FCon.code st
-            print $ FCon.syms st
+            -- print $ FCon.syms st
                
 
 --success :: SC.Program -> Bool

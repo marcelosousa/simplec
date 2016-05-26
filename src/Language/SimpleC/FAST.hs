@@ -57,6 +57,7 @@ data Declaration ident a =
   | TypeDecl (Type ident a)
   deriving Show
 
+-- | Just a type synonym
 type CDeclElem a = (Maybe (CDeclarator a), Maybe (CInitializer a), Maybe (CExpression a))
 data DeclElem ident a =
   DeclElem (Declarator ident a) (Maybe (Initializer ident a))

@@ -281,11 +281,16 @@ instance Process (CDerivedDeclarator a) a (SC.DerivedDeclarator SC.SymId a) wher
           Right (cdecls, b) -> do
             -- | Dont care about identifiers for pars 
             s@ProcState{..} <- get
-            let scope' = scope
-            put s {scope = None}
-            decls <- process cdecls
-            put s {scope = scope'}
-            return $ SC.FunDeclr (Right (decls,b)) attrs
+            if scope == Local
+            then do
+              decls <- process cdecls
+              return $ SC.FunDeclr (Right (decls,b)) attrs
+            else do 
+              let scope' = scope
+              put s {scope = None}
+              decls <- process cdecls
+              put s {scope = scope'}
+              return $ SC.FunDeclr (Right (decls,b)) attrs
 
 -- | Process the 'C Array Size' 
 instance Process (CArraySize a) a (SC.ArraySize SC.SymId a) where

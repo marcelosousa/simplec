@@ -34,7 +34,7 @@ parseFile f  =
 test f = do ctu <- parseFile f
             let sctu = fmap (\_ -> ()) ctu            
                 st = FCon.processor sctu 
-           -- print sctu
+            print sctu
            -- putStrLn ""
             putStrLn $ ppProg $ FCon.code st
             print $ FCon.syms st

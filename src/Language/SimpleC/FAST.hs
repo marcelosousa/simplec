@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Language.SimpleC.FAST where
 
@@ -11,7 +12,10 @@ import Language.C.Data.Ident
 import Language.C.Syntax.Constants
 
 -- Symbol Id
-type SymId = Int
+newtype SymId = SymId Int
+
+instance Show SymId where
+  show (SymId i) = "%"++show i
    
 type BinaryOp = CBinaryOp
 type UnaryOp = CUnaryOp
@@ -71,25 +75,29 @@ data FunctionDef ident a
 data Declaration ident a 
   = Decl (Type ident a) (DeclElem ident a)
   | TypeDecl (Type ident a)
-  deriving Show
 
 -- | Just a type synonym
 type CDeclElem a = (Maybe (CDeclarator a), Maybe (CInitializer a), Maybe (CExpression a))
 data DeclElem ident a
-  = DeclElem (Declarator ident a) (Maybe (Initializer ident a))
-  deriving Show
+  = DeclElem 
+  { declarator :: Declarator ident a
+  , initializer :: Maybe (Initializer ident a)
+  }
 
 -- | C Declarator
 data Declarator ident a
-  =  Declr (Maybe ident) [DerivedDeclarator ident a] 
-           (Maybe (CStringLiteral a)) [Attribute ident a] a
-  deriving Show
+  = Declr
+  { declr_ident :: Maybe ident
+  , declr_type  :: [DerivedDeclarator ident a]
+  , declr_cstr  :: Maybe (CStringLiteral a)
+  , declr_attr  :: [Attribute ident a]
+  , declr_loc   :: a
+  }
 
 data DerivedDeclarator ident a
   = PtrDeclr [TypeQualifier ident a]
   | ArrDeclr [TypeQualifier ident a] (ArraySize ident a)
   | FunDeclr (Either [ident] ([Declaration ident a], Bool)) [Attribute ident a]
-  deriving Show
 
 data ArraySize ident a
   = NoArrSize Bool
@@ -114,8 +122,11 @@ data PartDesignator ident a
 
 -- | Equivalent to a DeclarationSpecifier
 data Type ident a
-  = Type StorageSpecifier [TypeQualifier ident a] [TypeSpecifier ident a] 
-  deriving Show
+  = Type 
+  { storspec :: StorageSpecifier
+  , tyquals  :: [TypeQualifier ident a]
+  , tyspecs  :: [TypeSpecifier ident a]
+  } 
 
 -- ^ storage-class specifier or typedef
 data StorageSpecifier 
@@ -145,7 +156,6 @@ data TypeSpecifier ident a
   | TypeDef     ident        a           -- ^ Typedef name
   | TypeOfExpr  (Expression ident a)  a  -- ^ @typeof(expr)@
   | TypeOfType  (Declaration ident a) a  -- ^ @typeof(type)@
-  deriving Show
   
 data StructureUnion ident a 
   = Struct StructTag ident (Maybe [Declaration ident a]) [Attribute ident a] a
@@ -235,22 +245,82 @@ data CompoundBlockItem ident a
   deriving Show
 
 -- Show instances
+pp_with_sep :: Show a => String -> [a] -> String
+pp_with_sep sep [] = ""
+pp_with_sep sep (x:[]) = show x
+pp_with_sep sep (x:xs) =
+  show x++sep++pp_with_sep sep xs 
+
+-- @TODO: Print all the fields
+instance (Show ident, Show a) => Show (Declarator ident a) where
+  show d@Declr{..} =
+    let ty = foldr shows "" declr_type 
+    in case declr_ident of
+      Nothing -> ty
+      Just i  -> show i++" "++ty
+
+-- @TODO: FunDeclr print attributes 
+instance (Show ident, Show a) => Show (DerivedDeclarator ident a) where
+  show dd = case dd of
+    PtrDeclr tyquals -> "*" ++ foldr shows "" tyquals
+    ArrDeclr tyquals arr -> foldr shows "" tyquals++"["++show arr++"]"
+    FunDeclr eIdsDecl _ ->
+      case eIdsDecl of
+        Left lidents -> "("++pp_with_sep "," lidents++")"
+        Right (ldecl,_) -> "("++pp_with_sep "," ldecl++")"
+
+instance (Show ident, Show a) => Show (Declaration ident a) where
+  show decl = case decl of
+    Decl ty declr -> show ty ++ " " ++ show declr  
+    TypeDecl ty -> show ty 
+
+instance (Show ident, Show a) => Show (DeclElem ident a) where
+  show d@DeclElem{..} =
+    let pp_declr = show declarator
+    in case initializer of
+         Nothing -> pp_declr
+         Just i  -> pp_declr++" "++show initializer
+
+instance (Show ident, Show a) => Show (Type ident a) where
+  show ty@Type{..} =
+    let pp_storspec = show storspec 
+        pp_tyquals = foldr shows "" tyquals
+        pp_tyspec = foldr shows "" tyspecs
+    in pp_storspec ++ pp_tyquals ++ " " ++ pp_tyspec 
+
 instance Show StorageSpecifier where
-  show spec =
-    case spec of
-      Auto     -> "auto"
-      Register -> "register"
-      Static   -> "static"
-      Extern   -> "extern"
-      Typedef  -> "typedef"
-      Thread   -> "thread"
+  show spec = case spec of
+    Auto     -> "auto"
+    Register -> "register"
+    Static   -> "static"
+    Extern   -> "extern"
+    Typedef  -> "typedef"
+    Thread   -> "thread"
 
 instance (Show ident, Show a) => Show (TypeQualifier ident a) where
-  show tyqual =
-    case tyqual of
-      ConstQual -> "const" 
-      VolatQual -> "volatile"
-      RestrQual -> "restrict"
-      InlineQual -> "inline"
-      AttrQual attr -> "__"++show attr++"__"
+  show tyqual = case tyqual of
+    ConstQual -> "const" 
+    VolatQual -> "volatile"
+    RestrQual -> "restrict"
+    InlineQual -> "inline"
+    AttrQual attr -> "__"++show attr++"__"
 
+instance (Show ident, Show a) => Show (TypeSpecifier ident a) where
+  show ty = case ty of
+    VoidType    -> "void" 
+    CharType    -> "char"
+    ShortType   -> "short"
+    IntType     -> "int"
+    LongType    -> "long"
+    FloatType   -> "float"
+    DoubleType  -> "double"
+    SignedType  -> "signed"
+    UnsigType   -> "unsigned"
+    BoolType    -> "bool"
+    ComplexType -> "complex"
+    Int128Type  -> "int128"
+    TypeDef i a -> "typedef " ++ show i 
+    SUType su   -> show su
+    EnumType en _ -> show en
+    TypeOfExpr e _ -> "typeof("++show e++")"
+    TypeOfType d _ -> "typeofType("++show d++")"

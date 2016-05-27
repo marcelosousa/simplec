@@ -125,8 +125,8 @@ instance Process Ident a SC.SymId where
         let syms' = M.insert k (VarSym i) syms
             godel' = M.insert (hash,scope) k godel
         put p {syms=syms',godel=godel'}
-        return k
-      Just k  -> return k 
+        return $ SC.SymId k
+      Just k  -> return $ SC.SymId k 
 
 -- | Convert the 'C Translation Unit'
 instance Process (CTranslationUnit a) a () where
@@ -175,22 +175,25 @@ instance Process (CDeclaration a) a (SC.Declaration SC.SymId a) where
 toType :: [CDeclarationSpecifier a] -> ProcessorOp a (SC.Type SC.SymId a)
 toType decl_spec = do
   (st,ty,tyqual) <- foldM _toType ([],[],[]) decl_spec
-  case st of
-    []  -> return $ SC.Type SC.Auto tyqual ty
-    [s] -> return $ SC.Type s       tyqual ty
-    _   -> error "toType: more than one storage spec" 
-   where
-     _toType (st,ty,tyqual) d_spec = 
-       case d_spec of
-         CStorageSpec s -> do
-           _s <- process s
-           return (_s:st,ty,tyqual)
-         CTypeSpec    t -> do
-           _t <- process t
-           return (st,_t:ty,tyqual)
-         CTypeQual    q -> do
-           _q <- process q
-           return (st,ty,_q:tyqual)
+  if null ty
+  then error "no type specifier"
+  else do 
+    case st of
+      []  -> return $ SC.Type SC.Auto tyqual ty
+      [s] -> return $ SC.Type s       tyqual ty
+      _   -> error "toType: more than one storage spec" 
+     where
+       _toType (st,ty,tyqual) d_spec = 
+         case d_spec of
+           CStorageSpec s -> do
+             _s <- process s
+             return (_s:st,ty,tyqual)
+           CTypeSpec    t -> do
+             _t <- process t
+             return (st,_t:ty,tyqual)
+           CTypeQual    q -> do
+             _q <- process q
+             return (st,ty,_q:tyqual)
 
 -- | Process a Declaration Element
 instance Process (SC.CDeclElem a) a (SC.DeclElem SC.SymId a) where

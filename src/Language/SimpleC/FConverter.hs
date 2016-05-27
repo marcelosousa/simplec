@@ -90,9 +90,12 @@ addType ty = do
   addDeclaration d
 
 addDecl :: SC.Type SC.SymId a -> SC.DeclElem SC.SymId a -> ProcessorOp a ()
-addDecl ty el = do
-  let d = SC.Decl ty el
-  addDeclaration d
+addDecl ty el =
+  case el of
+    SC.DeclElem (SC.Declr Nothing [] Nothing [] _) Nothing -> addType ty
+    _ -> do
+      let d = SC.Decl ty el
+      addDeclaration d
 
 addFunction :: SC.FunctionDef SC.SymId a -> ProcessorOp a ()
 addFunction fun = do 
@@ -159,8 +162,13 @@ instance Process (CDeclaration a) a (SC.Declaration SC.SymId a) where
     else case cdeclrs of
       [cdeclr] -> do
         declr <- process cdeclr
-        let d = SC.Decl ty declr
-        return d
+        case declr of
+          SC.DeclElem (SC.Declr Nothing [] Nothing [] _) Nothing -> do
+            let d = SC.TypeDecl ty
+            return d
+          _ -> do
+            let d = SC.Decl ty declr
+            return d
       _ -> error "cant process CDeclaration with multiple declarators" 
 
 -- | CDeclarationSpecifier specifies a type

@@ -28,4 +28,3 @@ ppFun fun@FunDef{..} =
       pp_params = show params
       pp_body = show body
   in pp_retty ++ " " ++ pp_sym ++ pp_params ++ "\n" ++ pp_body
-

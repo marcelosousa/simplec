@@ -125,7 +125,6 @@ data StorageSpecifier
   | Extern   -- ^ extern
   | Typedef  -- ^ typedef
   | Thread   -- ^ GNUC thread local storage
-  deriving Show
 
 -- ^ type name
 data TypeSpecifier ident a
@@ -166,7 +165,6 @@ data TypeQualifier ident a
   | RestrQual 
   | InlineQual
   | AttrQual  (Attribute ident a)
- deriving Show
 
 -- ^ TODO: Comment
 data Attribute ident a 
@@ -235,3 +233,24 @@ data CompoundBlockItem ident a
   | BlockDecl (Declaration ident a)
   | NestedFunDef (FunctionDef ident a)
   deriving Show
+
+-- Show instances
+instance Show StorageSpecifier where
+  show spec =
+    case spec of
+      Auto     -> "auto"
+      Register -> "register"
+      Static   -> "static"
+      Extern   -> "extern"
+      Typedef  -> "typedef"
+      Thread   -> "thread"
+
+instance (Show ident, Show a) => Show (TypeQualifier ident a) where
+  show tyqual =
+    case tyqual of
+      ConstQual -> "const" 
+      VolatQual -> "volatile"
+      RestrQual -> "restrict"
+      InlineQual -> "inline"
+      AttrQual attr -> "__"++show attr++"__"
+

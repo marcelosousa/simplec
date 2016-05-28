@@ -232,7 +232,7 @@ data Statement ident a
   | If (Expression ident a) (Statement ident a) (Maybe (Statement ident a)) a
   | Label ident (Statement ident a) [Attribute ident a] a
   | Return (Maybe (Expression ident a)) a
-  | Switch (Expression ident a) (Statement ident a) a
+  |""++show i Switch (Expression ident a) (Statement ident a) a
   | While (Expression ident a) (Statement ident a) Bool a
   -- | Not supported
   | Asm (CAssemblyStatement a) a
@@ -259,7 +259,7 @@ instance (Show ident, Show a) => Show (Declarator ident a) where
       Nothing -> ty
       Just i  -> show i++" "++ty
 
--- @TODO: FunDeclr print attributes 
+-- @TODO: FunDeclr print attributes. 
 instance (Show ident, Show a) => Show (DerivedDeclarator ident a) where
   show dd = case dd of
     PtrDeclr tyquals -> "*" ++ foldr shows "" tyquals

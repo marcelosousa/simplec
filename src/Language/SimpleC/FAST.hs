@@ -232,7 +232,7 @@ data Statement ident a
   | If (Expression ident a) (Statement ident a) (Maybe (Statement ident a)) a
   | Label ident (Statement ident a) [Attribute ident a] a
   | Return (Maybe (Expression ident a)) a
-  |""++show i Switch (Expression ident a) (Statement ident a) a
+  | Switch (Expression ident a) (Statement ident a) a
   | While (Expression ident a) (Statement ident a) Bool a
   -- | Not supported
   | Asm (CAssemblyStatement a) a

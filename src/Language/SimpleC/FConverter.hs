@@ -5,6 +5,7 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE RecordWildCards #-}
+{-#LANGUAGE ScopedTypeVariables #-}
 
 {-
   This is a full converter from the C language
@@ -151,7 +152,7 @@ instance Process (CDeclaration a) a () where
     then addType ty
     else do
       -- | Process the C declarators
-      declrs <- process cdeclrs
+      (declrs :: [SC.DeclElem SC.SymId a]) <- process cdeclrs 
       mapM_ (addDecl ty) declrs 
 
 instance Process (CDeclaration a) a (SC.Declaration SC.SymId a) where
@@ -328,16 +329,16 @@ instance Process (CTypeQualifier a) a (SC.TypeQualifier SC.SymId a) where
 -- | Convert the 'C Type Specifier'
 instance Process (CTypeSpecifier a) a (SC.TypeSpecifier SC.SymId a) where
   process ctyspec = case ctyspec of
-    CVoidType n	   -> return $ SC.VoidType
-    CCharType n	   -> return $ SC.CharType	
-    CShortType n   -> return $ SC.ShortType	
-    CIntType n	   -> return $ SC.IntType
-    CLongType n	   -> return $ SC.LongType	
+    CVoidType n    -> return $ SC.VoidType
+    CCharType n    -> return $ SC.CharType
+    CShortType n   -> return $ SC.ShortType
+    CIntType n     -> return $ SC.IntType
+    CLongType n    -> return $ SC.LongType
     CFloatType n   -> return $ SC.FloatType
     CDoubleType n  -> return $ SC.DoubleType
     CSignedType n  -> return $ SC.SignedType
     CUnsigType n   -> return $ SC.UnsigType
-    CBoolType n	   -> return $ SC.BoolType
+    CBoolType n     -> return $ SC.BoolType
     CComplexType n -> return $ SC.ComplexType
     CTypeDef ident n -> do
       sym <- process ident
@@ -392,10 +393,10 @@ instance Process (CExpression a) a (SC.Expression SC.SymId a) where
   process cExpr = case cExpr of
      CAlignofExpr cExpr n -> do 
        expr <- process cExpr
-       return $ SC.AlignofExpr expr	 
+       return $ SC.AlignofExpr expr
      CAlignofType cDecl n -> do
        decl <- process cDecl
-       return $ SC.AlignofType decl	 
+       return $ SC.AlignofType decl
      CAssign op lhsExpr rhsExpr n -> do
        lhs <- process lhsExpr
        rhs <- process rhsExpr
@@ -411,7 +412,7 @@ instance Process (CExpression a) a (SC.Expression SC.SymId a) where
      CCast cDecl cExpr n -> do
        decl <- process cDecl
        expr <- process cExpr
-       return $ SC.Cast decl expr	 
+       return $ SC.Cast decl expr
      CCond condExpr mThenExpr elseExpr n -> do
        cond <- process condExpr
        mThen <- process mThenExpr
@@ -462,7 +463,7 @@ instance Process (CConstant a) a SC.Constant where
 instance Process (CStatement a) a (SC.Statement SC.SymId a) where
   process cStat = case cStat of
     -- Break statement
-    CBreak n -> return $ SC.Break n	
+    CBreak n -> return $ SC.Break n
     -- A statement of the form case expr : stmt
     CCase cExpr cStat n -> do 
       expr <- process cExpr
@@ -473,7 +474,7 @@ instance Process (CStatement a) a (SC.Statement SC.SymId a) where
       expr <- process cExpr
       _expr <- process _cExpr
       stat <- process cStat
-      return $ SC.Cases expr _expr stat n	
+      return $ SC.Cases expr _expr stat n
     -- Continue statement
     CCont n -> return $ SC.Cont n 
     -- The default case default : stmt
@@ -516,7 +517,7 @@ instance Process (CStatement a) a (SC.Statement SC.SymId a) where
       sym <- process ident
       stat <- process cStat
       lcAttr <- process lCAttr
-      return $ SC.Label sym stat lcAttr n	
+      return $ SC.Label sym stat lcAttr n
     -- Return statement CReturn returnExpr
     CReturn mCExpr n -> do
       mExpr <- process mCExpr
@@ -582,17 +583,18 @@ instance (Process a n b) => Process (Maybe a) n (Maybe b) where
 
 -- | Process Either versions
 instance (Process a n b, Process c n d) => 
-	Process (Either a c) n (Either b d) where
+  Process (Either a c) n (Either b d) where
   process (Left a) = process a >>= return . Left
   process (Right b) = process b >>= return . Right
 
 -- | Process Pair versions
 instance (Process a n b, Process c n d) => 
-	Process (a,c) n (b,d) where
+  Process (a,c) n (b,d) where
   process (a,c) = do
     b <- process a
     d <- process c
     return $ (b,d)
+
 
 -- | Process List versions
 instance (Process a n b) => Process [a] n [b] where
@@ -600,45 +602,50 @@ instance (Process a n b) => Process [a] n [b] where
 
 {-
 
+-- | Process Triple versions
+instance (Process a n b, Process c n d, Process e n f) => 
+	Process (a,c,e) n (b,d,f) where
+    process (a,c,e) = do 
+      b <- process a
+      d <- process c
+      f <- process e
+      return (b,d,f)
+
 -- | Convert the 'C AssemblyStatement'
 instance Convertible (CAssemblyStatement NodeInfo) (CAssemblyStatement ()) where
     translate cAsmStmt = case cAsmStmt of
 	CAsmStmt mCTyQual cStrLit lCAsmOp _lCAsmOp lCStrLit n ->
-	    let mTyQual = translate mCTyQual
+			let mTyQual = translate mCTyQual
 		strLit = translate cStrLit
 		lAsmOp = translate lCAsmOp
 		_lAsmOp = translate _lCAsmOp
 		lStrLit = translate lCStrLit
-	    in CAsmStmt mTyQual strLit lAsmOp _lAsmOp lStrLit ()
+			in CAsmStmt mTyQual strLit lAsmOp _lAsmOp lStrLit ()
 
 -- | Convert the 'C AssemblyOperand'
 instance Convertible (CAssemblyOperand NodeInfo) (CAssemblyOperand ()) where
     translate cAsmOp = case cAsmOp of
 	CAsmOperand mIdent cStrLit cExpr n ->
-	    let strLit = translate cStrLit
+			let strLit = translate cStrLit
 		expr = translate cExpr
-	    in CAsmOperand mIdent strLit expr ()
+			in CAsmOperand mIdent strLit expr ()
 
 -- | Convert the 'C BuiltinThing'
 instance Convertible (CBuiltinThing NodeInfo) (CBuiltinThing ()) where
     translate cBuiltinThing = case cBuiltinThing of
 	CBuiltinVaArg cExpr cDecl n ->
-	    let expr = translate cExpr
+			let expr = translate cExpr
 		decl = translate cDecl
-	    in CBuiltinVaArg expr decl ()	
+			in CBuiltinVaArg expr decl ()	
 	CBuiltinOffsetOf cDecl lcPartDes n ->
-	    let decl = translate cDecl
+			let decl = translate cDecl
 		lpartDes = translate lcPartDes
-	    in CBuiltinOffsetOf decl lpartDes () 
+			in CBuiltinOffsetOf decl lpartDes () 
 	CBuiltinTypesCompatible cDecl _cDecl n ->
-	    let decl = translate cDecl
+			let decl = translate cDecl
 		_decl = translate _cDecl
-	    in CBuiltinTypesCompatible decl _decl () 
+			in CBuiltinTypesCompatible decl _decl () 
 
 
--- | Convert Triple versions
-instance (Convertible a b, Convertible c d, Convertible e f) => 
-	Convertible (a,c,e) (b,d,f) where
-    translate (a,c,e) = (translate a, translate c, translate e)
 
 -}

@@ -10,7 +10,6 @@ import qualified Language.SimpleC.SConverter as SC
 
 import System.FilePath
 import System.Directory
-import Test.HUnit
 
 main :: IO ()
 main = putStrLn "simple-c: a library for simple c"

@@ -6,12 +6,10 @@ import Data.Map (Map)
 import Language.C 
 import Language.C.System.GCC  -- preprocessor used
 import Language.C.Data.Ident
-import Language.C.Analysis.AstAnalysis
 
-import qualified Language.SimpleC.FAST as SC
+import Language.SimpleC.AST 
 import Language.SimpleC.Converter
-import qualified Language.SimpleC.FConverter as FCon
-import Language.SimpleC.FPrinter
+import Language.SimpleC.Printer
 -- import Language.SimpleC.Flow
 
 parseFile :: FilePath -> IO CTranslUnit
@@ -33,10 +31,10 @@ parseFile f  =
 --test :: FilePath -> IO a
 test f = do ctu <- parseFile f
             let sctu = fmap (\_ -> ()) ctu            
-                st = FCon.processor sctu 
+                st = processor sctu 
            -- print sctu
            -- putStrLn ""
-            putStrLn $ ppProg $ FCon.code st
+            putStrLn $ ppProg $ code st
            -- print $ FCon.syms st
                
 

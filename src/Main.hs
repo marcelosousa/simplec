@@ -6,7 +6,6 @@ import Language.C.Data.Ident
 
 import Language.SimpleC
 import Language.SimpleC.Converter
-import qualified Language.SimpleC.SConverter as SC
 
 import System.FilePath
 import System.Directory

@@ -5,7 +5,7 @@
 {-#LANGUAGE FlexibleInstances #-}
 {-#LANGUAGE FlexibleContexts #-}
 
-module Language.SimpleC.SConverter where
+module Language.SimpleC.V1.TemplateConverter where
 
 import Language.C 
 import Language.C.System.GCC  -- preprocessor used
@@ -218,11 +218,11 @@ instance Convertible (CPartDesignator NodeInfo) (CPartDesignator ()) where
 
 -- | Convert the 'C Constant'
 instance Convertible (CConstant NodeInfo) (CConstant ()) where
-    translate cConst = case cConst of
-	CIntConst cInteger n -> CIntConst cInteger () 
-	CCharConst cChar n   -> CCharConst cChar ()	 
-	CFloatConst cFloat n -> CFloatConst cFloat () 	 
-	CStrConst cString n  -> CStrConst cString ()
+     translate cConst = case cConst of
+        CIntConst cInteger n -> CIntConst cInteger () 
+        CCharConst cChar n   -> CCharConst cChar ()	 
+        CFloatConst cFloat n -> CFloatConst cFloat () 	 
+        CStrConst cString n  -> CStrConst cString ()
 
 -- | Convert the 'C Statement'
 instance Convertible (CStatement NodeInfo) (CStatement ()) where

@@ -6,6 +6,7 @@
 {-#LANGUAGE FlexibleContexts #-}
 {-#LANGUAGE RecordWildCards #-}
 {-#LANGUAGE ScopedTypeVariables #-}
+{-#LANGUAGE DoAndIfThenElse #-}
 
 {-
   This is a full converter from the C language
@@ -23,6 +24,7 @@
 module Language.SimpleC.FConverter where
 
 import Language.C 
+import Language.C.Pretty 
 import Language.C.System.GCC  -- preprocessor used
 import Language.C.Data.Ident
 import qualified Language.SimpleC.FAST as SC
@@ -156,21 +158,30 @@ instance Process (CDeclaration a) a () where
       mapM_ (addDecl ty) declrs 
 
 instance Process (CDeclaration a) a (SC.Declaration SC.SymId a) where
-  process (CDecl cdeclspec cdeclrs n) = do
+  process de@(CDecl cdeclspec cdeclrs n) = do
     ty <- toType cdeclspec
     if null cdeclrs
     then return $ SC.TypeDecl ty 
     else case cdeclrs of
       [cdeclr] -> do
         declr <- process cdeclr
-        case declr of
-          SC.DeclElem (SC.Declr Nothing [] Nothing [] _) Nothing -> do
-            let d = SC.TypeDecl ty
-            return d
-          _ -> do
-            let d = SC.Decl ty declr
-            return d
-      _ -> error "cant process CDeclaration with multiple declarators" 
+        return $ normalizeDecl ty declr
+      _ -> error $ "cant process CDeclaration with multiple declarators" 
+
+instance Process (CDeclaration a) a [SC.Declaration SC.SymId a] where
+  process de@(CDecl cdeclspec cdeclrs n) = do
+    ty <- toType cdeclspec
+    if null cdeclrs
+    then return $ [SC.TypeDecl ty] 
+    else do 
+      (declrs :: [SC.DeclElem SC.SymId a]) <- process cdeclrs 
+      return $ map (normalizeDecl ty) declrs
+
+normalizeDecl :: SC.Type SC.SymId a -> SC.DeclElem SC.SymId a -> SC.Declaration SC.SymId a
+normalizeDecl ty declr = 
+  case declr of
+    SC.DeclElem (SC.Declr Nothing [] Nothing [] _) Nothing -> SC.TypeDecl ty
+    _ -> SC.Decl ty declr
 
 -- | CDeclarationSpecifier specifies a type
 toType :: [CDeclarationSpecifier a] -> ProcessorOp a (SC.Type SC.SymId a)
@@ -359,14 +370,11 @@ instance Process (CTypeSpecifier a) a (SC.TypeSpecifier SC.SymId a) where
 instance Process (CStructureUnion a) a (SC.StructureUnion SC.SymId a) where
   process cStruct =
     case cStruct of
-      CStruct tag mIdent mDecl cAttr n ->
-        case mIdent of
-          Nothing -> error "Struct without identifier"
-          Just ident -> do
-            sym <- process ident
-            decl <- process mDecl
-            attrs <- process cAttr
-            return $ SC.Struct tag sym decl attrs n
+      CStruct tag mIdent mDecl cAttr n -> do
+        sym <- process mIdent
+        decl <- process mDecl
+        attrs <- process cAttr
+        return $ SC.Struct tag sym decl attrs n
 
 -- | Process 'C Enumeration'
 instance Process (CEnumeration a) a (SC.Enumeration SC.SymId a) where
@@ -413,6 +421,9 @@ instance Process (CExpression a) a (SC.Expression SC.SymId a) where
        decl <- process cDecl
        expr <- process cExpr
        return $ SC.Cast decl expr
+     CComma cExprs n -> do
+       exprs <- process cExprs
+       return $ SC.Comma exprs 
      CCond condExpr mThenExpr elseExpr n -> do
        cond <- process condExpr
        mThen <- process mThenExpr
@@ -446,7 +457,8 @@ instance Process (CExpression a) a (SC.Expression SC.SymId a) where
        return $ SC.Unary op expr 
      CVar ident n -> do
        sym <- process ident
-       return $ SC.Var sym 
+       return $ SC.Var sym
+     CBuiltinExpr _ -> error "CBuiltinExpr not supported" 
      _ -> error ("Expression not supported")
  
 -- | Convert the 'C Constant'

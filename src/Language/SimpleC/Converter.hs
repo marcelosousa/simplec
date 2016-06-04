@@ -496,12 +496,9 @@ instance Process (CStatement a) a (SC.Statement SC.SymId a) where
     -- A simple statement, that is in C:
     -- evaluating an expression with side-effects
     -- and discarding the result
-    CExpr mCExpr n ->
-      case mCExpr of
-        Nothing -> error "Empty Expression Statement"
-        Just cExpr -> do
-          expr <- process cExpr
-          return $ SC.Expr expr n
+    CExpr mCExpr n -> do
+      mExpr <- process mCExpr 
+      return $ SC.Expr mExpr n
     -- For statement CFor init expr-2 expr-3 stmt,
     -- where init is either a declaration or initializing expression
     CFor cInit cExpr _cExpr cStat n -> do 

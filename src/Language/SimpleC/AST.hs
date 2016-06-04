@@ -220,7 +220,7 @@ data Statement ident a
   | Compound [ident] [CompoundBlockItem ident a] a
   | Cont a
   | Default (Statement ident a) a
-  | Expr (Expression ident a) a -- * Removed the Maybe
+  | Expr (Maybe (Expression ident a)) a 
   | For (Either (Maybe (Expression ident a)) [Declaration ident a])
         (Maybe (Expression ident a))
         (Maybe (Expression ident a))

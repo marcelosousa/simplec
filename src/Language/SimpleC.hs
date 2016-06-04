@@ -1,8 +1,5 @@
 module Language.SimpleC where
     
-import qualified Data.Map as M
-import Data.Map (Map)
-
 import Language.C 
 import Language.C.System.GCC  -- preprocessor used
 import Language.C.Data.Ident
@@ -14,7 +11,7 @@ import Language.SimpleC.Printer
 
 parseFile :: FilePath -> IO CTranslUnit
 parseFile f  =
-  do parse_result <- parseCFile (newGCC "gcc") Nothing [] f
+  do parse_result <- parseCFile (newGCC "gcc") Nothing ["-I/home/msousa/benchmarks/musketeer/debian/packages/coreutils-8.21/lib/","-I/usr/include/linux/"] f
      case parse_result of
        Left parse_err -> do 
            parse_result <- parseCFilePre f
@@ -36,8 +33,3 @@ test f = do ctu <- parseFile f
            -- putStrLn ""
             putStrLn $ ppProg $ code st
            -- print $ FCon.syms st
-               
-
---success :: SC.Program -> Bool
---success (SC.Program _) = True
-

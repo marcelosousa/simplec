@@ -12,7 +12,8 @@
 -}
 module Language.SimpleC.Flow where
 
-import Language.SimpleC.AST 
+import Language.SimpleC.AST
+import Language.C.Syntax.AST 
 import qualified Data.Map as M
 import Data.List 
 import Data.Map (Map)
@@ -59,13 +60,14 @@ data FlowState ident node
     graphs  :: Graphs ident node
   , this    :: Graph ident node
   , entries :: Map ident NodeId
-  , current :: [NodeId] 
+  , prev :: [NodeId] 
+  , current :: NodeId 
   , next  :: [NodeId] 
   , pc_counter :: NodeId
   } deriving Show
 
 init_st :: FlowState ident node
-init_st = FlowState M.empty undefined M.empty [] [] 0
+init_st = FlowState M.empty undefined M.empty [] 0 [] 0
 
 type FlowOp ident node val = State (FlowState ident node) val
 
@@ -123,25 +125,35 @@ addEntry sym n = do
   let e = M.insert sym n entries
   put p {entries = e}
 
-pushCurrent :: NodeId -> FlowOp ident node ()
-pushCurrent n = do
-  p@FlowState{..} <- get
-  let e = n:current 
-  put p {current = e}
-
-popCurrent :: FlowOp ident node NodeId
-popCurrent = do
-  p@FlowState{..} <- get
-  case current of
-    [] -> error "cant pop empty stack"
-    (x:xs) -> do
-      put p {current = xs}
-      return x 
-
 getCurrent :: FlowOp ident node NodeId
 getCurrent = do
   p@FlowState{..} <- get
-  case current of
+  return current
+
+replaceCurrent :: NodeId -> FlowOp ident node ()
+replaceCurrent n = do
+  p@FlowState{..} <- get
+  put p {current = n}
+
+pushPrev :: NodeId -> FlowOp ident node ()
+pushPrev n = do
+  p@FlowState{..} <- get
+  let e = n:prev
+  put p {prev = e}
+
+popPrev :: FlowOp ident node NodeId
+popPrev = do
+  p@FlowState{..} <- get
+  case prev of
+    [] -> error "cant pop empty stack"
+    (x:xs) -> do
+      put p {prev = xs}
+      return x 
+
+getPrev :: FlowOp ident node NodeId
+getPrev = do
+  p@FlowState{..} <- get
+  case prev of
     [] -> error "cant get current: empty"
     (x:xs) -> return x
  
@@ -160,6 +172,15 @@ popNext = do
       put p {next = xs}
       return x 
 
+getPCLabel :: Ord ident => ident -> FlowOp ident node NodeId
+getPCLabel sym = do
+  p@FlowState{..} <- get
+  case M.lookup sym entries of
+    Nothing -> do
+      lab <- incCounter
+      addEntry sym lab
+      return lab 
+ 
 getNext :: FlowOp ident node NodeId
 getNext = do
   p@FlowState{..} <- get
@@ -210,9 +231,8 @@ computeGraph fn@FunDef{..} = do
   entry <- getEntryId sym
   let this = init_graph entry
   replaceGraph this
-  pushCurrent entry
+  replaceCurrent entry
   computeGraphBody body
-  popCurrent
   addThis sym 
   return ()
 
@@ -220,27 +240,124 @@ computeGraphBody :: Ord ident => Statement ident node -> FlowOp ident node ()
 computeGraphBody stmt =
   case stmt of
     Break n -> do
+      curr <- getCurrent
       next <- getNext
-      undefined
-    _ -> undefined
+      let nInfo = NodeInfo [] (E Skip) 
+      addNode curr nInfo
+      addEdge curr next 
+    Case expr body n -> do
+      curr <- getCurrent
+      new <- incCounter
+      replaceCurrent new
+      let nInfo = NodeInfo [] (E expr)
+      addNode curr nInfo
+      addEdge curr new
+      computeGraphBody body 
+    Cases lower upper body n -> do
+      cur <- getCurrent
+      lowerPc <- incCounter
+      upperPc <- incCounter
+      let lowerInfo = NodeInfo [] (E lower)
+          upperInfo = NodeInfo [] (E upper)
+      addNode cur lowerInfo 
+      addNode lowerPc upperInfo
+      addEdge cur lowerPc
+      addEdge lowerPc upperPc
+      replaceCurrent upperPc 
+      computeGraphBody body 
+    Compound idents items n ->
+      case idents of
+        [] -> computeGraphCompound items
+        _ -> error "compound has idents"
+    Cont n -> do
+      curr <- getCurrent
+      prev <- getPrev
+      let nInfo = NodeInfo [] (E Skip) 
+      addNode curr nInfo
+      addEdge curr prev 
+    Default stat n ->  
+      computeGraphBody stat
+    Expr mExpr n ->
+      case mExpr of
+        Nothing -> return ()
+        Just e  -> do 
+          curr <- getCurrent
+          next <- getNext
+          let nInfo = NodeInfo [] (E Skip) 
+          addNode curr nInfo
+          addEdge curr next 
+          replaceCurrent next 
+    For begin cond end body n -> computeFor begin cond end body 
+    Goto ident n -> do
+      curr <- getCurrent
+      next <- getPCLabel ident 
+      let nInfo = NodeInfo [] (E Skip) 
+      addNode curr nInfo
+      addEdge curr next
+      next' <- incCounter
+      replaceCurrent next'      
+    GotoPtr expr n -> error "GotoPtr not supported"
+    If cond tStmt mEStmt n -> do
+      curr <- getCurrent
+      thenPc <- incCounter
+      elsePc <- incCounter
+      let nInfo = NodeInfo [] (E Skip)
+          nThen = NodeInfo [] (E cond)
+          nElse = NodeInfo [] (E (Unary CNegOp cond)) 
+      addNode curr nInfo
+      addEdge curr thenPc
+      addEdge curr elsePc
+      nextThen <- incCounter
+      replaceCurrent nextThen
+      computeGraphBody tStmt
+      case mEStmt of
+        Nothing -> do
+          next <- getNext
+          addEdge elsePc next 
+        Just eStmt -> do
+          nextElse <- incCounter
+          replaceCurrent nextElse 
+          computeGraphBody eStmt
+    Label sym stat attrs n ->
+      case attrs of
+        [] -> do
+          curr <- getPCLabel sym 
+          next <- incCounter
+          let nInfo = NodeInfo [] (E Skip)
+          addNode curr nInfo
+          addEdge curr next
+          replaceCurrent next
+          computeGraphBody stat
+        _ -> error "cant handle label with attributes"
+    -- TODO: Need to warn the next one 
+    Return mExpr n -> do
+      curr <- getCurrent
+      next <- incCounter
+      let nInfo = case mExpr of
+            Nothing -> NodeInfo [] (E Skip)
+            Just e  -> NodeInfo [] (E e)
+      addNode curr nInfo
+      addEdge curr next
+    -- Be careful with the case statements
+    Switch cond body n -> do
+      curr <- getCurrent
+      next <- incCounter
+      let nInfo = NodeInfo [] (E cond)
+      addNode curr nInfo
+      addEdge curr next
+      replaceCurrent next
+      computeGraphBody body 
+    While cond body isDoWhile n -> computeWhile cond body isDoWhile
+
+computeGraphCompound = undefined
+computeFor begin cond end body = undefined 
 {- 
-       
-    Case (Expression ident a) (Statement ident a) a
-    Cases (Expression ident a) (Expression ident a) (Statement ident a) a
-    Compound [ident] [CompoundBlockItem ident a] a
-    Cont a
-    Default (Statement ident a) a
-    Expr (Maybe (Expression ident a)) a
-    For (Either (Maybe (Expression ident a)) [Declaration ident a])
+
+(Either (Maybe (Expression ident a)) [Declaration ident a])
         (Maybe (Expression ident a))
         (Maybe (Expression ident a))
         (Statement ident a)
-        a
-    Goto ident a
-    GotoPtr (Expression ident a) a
-    If (Expression ident a) (Statement ident a) (Maybe (Statement ident a)) a
-    Label ident (Statement ident a) [Attribute ident a] a
-    Return (Maybe (Expression ident a)) a
-    Switch (Expression ident a) (Statement ident a) a
-    While (Expression ident a) (Statement ident a) Bool a
 -}
+computeWhile = undefined
+-- (Expression ident a) (Statement ident a) Bool a
+

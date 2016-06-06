@@ -201,6 +201,7 @@ data Expression ident a
   | Member (Expression ident a) ident Bool
   | SizeofExpr (Expression ident a)
   | SizeofType (Declaration ident a)
+  | Skip 
   | StatExpr (Statement ident a) 
   | Unary UnaryOp (Expression ident a)
   | Var ident
@@ -213,6 +214,7 @@ data Constant
   | CharConst CChar 
   | FloatConst CFloat 
   | StrConst CString 
+  | BoolConst Bool
 
 data Statement ident a
   = Break a
@@ -402,6 +404,7 @@ instance Show Constant where
     CharConst cChar -> show cChar
     FloatConst cFloat -> show cFloat
     StrConst cStr -> show cStr
+    BoolConst bool -> show bool 
 
 instance (Show ident, Show a) => Show (Expression ident a) where
   show expr = case expr of
@@ -433,6 +436,7 @@ instance (Show ident, Show a) => Show (Expression ident a) where
     Member expr ident b -> show expr++"."++show ident
     SizeofExpr expr -> "sizeofexpr("++show expr++")"
     SizeofType decl -> "sizeofty("++show decl++")"
+    Skip -> "skip"
     StatExpr stat -> show stat 
     Unary unaryOp expr -> show (pretty unaryOp)++show expr
     Var ident -> show ident

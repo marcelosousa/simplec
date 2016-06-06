@@ -95,7 +95,8 @@ addType ty = do
 addDecl :: SC.Type SC.SymId a -> SC.DeclElem SC.SymId a -> ProcessorOp a ()
 addDecl ty el =
   case el of
-    SC.DeclElem (SC.Declr Nothing [] Nothing [] _) Nothing -> addType ty
+    SC.DeclElem (Just (SC.Declr Nothing [] Nothing [] _)) Nothing Nothing -> addType ty
+    SC.DeclElem Nothing Nothing Nothing -> addType ty
     _ -> do
       let d = SC.Decl ty el
       addDeclaration d
@@ -180,7 +181,8 @@ instance Process (CDeclaration a) a [SC.Declaration SC.SymId a] where
 normalizeDecl :: SC.Type SC.SymId a -> SC.DeclElem SC.SymId a -> SC.Declaration SC.SymId a
 normalizeDecl ty declr = 
   case declr of
-    SC.DeclElem (SC.Declr Nothing [] Nothing [] _) Nothing -> SC.TypeDecl ty
+    SC.DeclElem (Just (SC.Declr Nothing [] Nothing [] _)) Nothing Nothing -> SC.TypeDecl ty
+    SC.DeclElem Nothing Nothing Nothing -> SC.TypeDecl ty
     _ -> SC.Decl ty declr
 
 -- | CDeclarationSpecifier specifies a type
@@ -209,16 +211,11 @@ toType decl_spec = do
 
 -- | Process a Declaration Element
 instance Process (SC.CDeclElem a) a (SC.DeclElem SC.SymId a) where
-  process (mCDeclr, mCInit, mCSizeExpr) =
-    case mCDeclr of
-      Nothing -> error "empty declarator"
-      Just cdeclr ->
-        case mCSizeExpr of
-          Nothing -> do
-            declr <- process cdeclr
-            mInit <- process mCInit
-            return $ SC.DeclElem declr mInit
-          Just _ -> error "Process CDeclElem not supported"
+  process (mCDeclr, mCInit, mCSizeExpr) = do
+    declr <- process mCDeclr 
+    mInit <- process mCInit 
+    mSizeExpr <- process mCSizeExpr
+    return $ SC.DeclElem declr mInit mSizeExpr
 
 -- | Process a Declarator
 instance Process (CDeclarator a) a (SC.Declarator SC.SymId a) where
@@ -363,8 +360,9 @@ instance Process (CTypeSpecifier a) a (SC.TypeSpecifier SC.SymId a) where
     CTypeOfExpr cExpression n -> do
       expr <- process cExpression 
       return $ SC.TypeOfExpr expr n
-    CTypeOfType cDeclaration n ->
-      error "process CTypeOfType not supported"
+    CTypeOfType cDeclaration n -> do
+      decl <- process cDeclaration 
+      return $ SC.TypeOfType decl n
 
 -- | Process 'C StructureUnion'
 instance Process (CStructureUnion a) a (SC.StructureUnion SC.SymId a) where
@@ -378,14 +376,11 @@ instance Process (CStructureUnion a) a (SC.StructureUnion SC.SymId a) where
 
 -- | Process 'C Enumeration'
 instance Process (CEnumeration a) a (SC.Enumeration SC.SymId a) where
-  process (CEnum mIdent mAuxPair lCAttr n) =
-    case mIdent of
-      Nothing -> error "Cant process Enum without identifier" 
-      Just ident -> do
-        sym <- process ident
-        auxPair <- process mAuxPair
-        lAttr <- process lCAttr
-        return $ SC.Enum sym auxPair lAttr n
+  process (CEnum mIdent mAuxPair lCAttr n) = do
+    mSym <- process mIdent
+    auxPair <- process mAuxPair
+    lAttr <- process lCAttr
+    return $ SC.Enum mSym auxPair lAttr n
  
 -- | Process 'C Attribute'
 instance Process (CAttribute a) a (SC.Attribute SC.SymId a) where
@@ -413,6 +408,9 @@ instance Process (CExpression a) a (SC.Expression SC.SymId a) where
        lhs <- process lhsExpr
        rhs <- process rhsExpr
        return $ SC.Binary op lhs rhs 
+     CBuiltinExpr cBExpr -> do
+       expr <- process cBExpr
+       return $ SC.BuiltinExpr expr
      CCall fnExpr argsExpr n -> do 
        fn <- process fnExpr
        args <- process argsExpr
@@ -424,6 +422,10 @@ instance Process (CExpression a) a (SC.Expression SC.SymId a) where
      CComma cExprs n -> do
        exprs <- process cExprs
        return $ SC.Comma exprs 
+     CCompoundLit cDecl cInit n -> do
+       decl <- process cDecl
+       init <- process cInit
+       return $ SC.CompoundLit decl init
      CCond condExpr mThenExpr elseExpr n -> do
        cond <- process condExpr
        mThen <- process mThenExpr
@@ -458,10 +460,26 @@ instance Process (CExpression a) a (SC.Expression SC.SymId a) where
      CVar ident n -> do
        sym <- process ident
        return $ SC.Var sym
-     CBuiltinExpr _ -> error "CBuiltinExpr not supported" 
      _ -> error ("Expression not supported")
  
--- | Convert the 'C Constant'
+-- | Process the 'C BuiltinThing'
+instance Process (CBuiltinThing a) a (SC.BuiltinThing SC.SymId a) where
+  process cBuiltinThing = 
+    case cBuiltinThing of
+      CBuiltinVaArg cExpr cDecl n -> do
+        expr <- process cExpr
+        decl <- process cDecl
+        return $ SC.BuiltinVaArg expr decl n
+      CBuiltinOffsetOf cDecl lcPartDes n -> do
+        decl <- process cDecl
+        lpartDes <- process lcPartDes
+        return $ SC.BuiltinOffsetOf decl lpartDes n 
+      CBuiltinTypesCompatible cDecl _cDecl n -> do
+        decl <- process cDecl
+        _decl <- process _cDecl
+        return $ SC.BuiltinTypesCompatible decl _decl n 
+
+-- | Process the 'C Constant'
 instance Process (CConstant a) a SC.Constant where
   process cConst = do 
     let const = case cConst of
@@ -639,21 +657,6 @@ instance Convertible (CAssemblyOperand NodeInfo) (CAssemblyOperand ()) where
 		expr = translate cExpr
 			in CAsmOperand mIdent strLit expr ()
 
--- | Convert the 'C BuiltinThing'
-instance Convertible (CBuiltinThing NodeInfo) (CBuiltinThing ()) where
-    translate cBuiltinThing = case cBuiltinThing of
-	CBuiltinVaArg cExpr cDecl n ->
-			let expr = translate cExpr
-		decl = translate cDecl
-			in CBuiltinVaArg expr decl ()	
-	CBuiltinOffsetOf cDecl lcPartDes n ->
-			let decl = translate cDecl
-		lpartDes = translate lcPartDes
-			in CBuiltinOffsetOf decl lpartDes () 
-	CBuiltinTypesCompatible cDecl _cDecl n ->
-			let decl = translate cDecl
-		_decl = translate _cDecl
-			in CBuiltinTypesCompatible decl _decl () 
 
 
 

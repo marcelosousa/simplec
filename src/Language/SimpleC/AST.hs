@@ -81,8 +81,9 @@ data Declaration ident a
 type CDeclElem a = (Maybe (CDeclarator a), Maybe (CInitializer a), Maybe (CExpression a))
 data DeclElem ident a
   = DeclElem 
-  { declarator :: Declarator ident a
+  { declarator :: Maybe (Declarator ident a)
   , initializer :: Maybe (Initializer ident a)
+  , size_expr :: Maybe (Expression ident a)
   }
 
 -- | C Declarator
@@ -163,7 +164,7 @@ data StructureUnion ident a
   deriving Show
 
 data Enumeration ident a
-  = Enum ident
+  = Enum (Maybe ident)
          (Maybe [(ident, Maybe (Expression ident a))])
          [Attribute ident a]
          a
@@ -188,9 +189,11 @@ data Expression ident a
   | AlignofType (Declaration ident a)
   | Assign AssignOp (Expression ident a) (Expression ident a)
   | Binary BinaryOp (Expression ident a) (Expression ident a)
+  | BuiltinExpr (BuiltinThing ident a)
   | Call (Expression ident a) [Expression ident a] a
   | Cast (Declaration ident a) (Expression ident a)
   | Comma [Expression ident a]
+  | CompoundLit (Declaration ident a) (InitializerList ident a)
   | Cond (Expression ident a) (Maybe (Expression ident a)) (Expression ident a)
   | Const Constant
   | Index (Expression ident a) (Expression ident a)
@@ -202,10 +205,8 @@ data Expression ident a
   | Unary UnaryOp (Expression ident a)
   | Var ident
 -- Unsupported expressions:
-  | BuiltinExpr (CBuiltinThing a)
   | ComplexReal (CExpression a)
   | ComplexImag (CExpression a)
-  | CompoundLit (CDeclaration a) (CInitializerList a)
 
 data Constant
   = IntConst CInteger 
@@ -241,6 +242,13 @@ data CompoundBlockItem ident a
   | BlockDecl [Declaration ident a]
   | NestedFunDef (FunctionDef ident a)
 
+
+data BuiltinThing ident a
+  = BuiltinVaArg (Expression ident a) (Declaration ident a) a
+  | BuiltinOffsetOf (Declaration ident a) [PartDesignator ident a] a
+  | BuiltinTypesCompatible (Declaration ident a) (Declaration ident a) a
+  deriving Show
+
 -- Show instances
 pp_with_sep :: Show a => String -> [a] -> String
 pp_with_sep sep [] = ""
@@ -275,8 +283,8 @@ instance (Show ident, Show a) => Show (DeclElem ident a) where
   show d@DeclElem{..} =
     let pp_declr = show declarator
     in case initializer of
-         Nothing -> pp_declr
-         Just i  -> pp_declr++" "++show initializer
+         Nothing -> pp_declr++" "++show size_expr
+         Just i  -> pp_declr++" "++show initializer++" "++ show size_expr
 
 instance (Show ident, Show a) => Show (Type ident a) where
   show ty@Type{..} =
@@ -401,6 +409,7 @@ instance (Show ident, Show a) => Show (Expression ident a) where
     AlignofType decl -> "alignofty("++show decl++")"
     Assign assignOp lhs rhs -> show lhs++" "++show (pretty assignOp)++" "++show rhs 
     Binary binaryOp lhs rhs -> show lhs++" "++show (pretty binaryOp)++" "++show rhs
+    BuiltinExpr c -> "builtin "++show c
     Call fnName args a -> 
       let argsS = case args of
             [] -> ""
@@ -412,6 +421,7 @@ instance (Show ident, Show a) => Show (Expression ident a) where
       if length exprs == 1
       then "("++show (exprs!!0)++")"
       else foldr (\s r -> show s++","++r) (show $ last exprs) (init exprs)
+    CompoundLit cdecl cinit -> "compound_lit "++show cdecl++" "++show cinit
     Cond e1 e2 e3 -> 
       let e1S = show e1
           e2S = maybe "" show e2

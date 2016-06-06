@@ -29,8 +29,8 @@ parseFile f  = do
 --test :: FilePath -> IO a
 test f = do ctu <- parseFile f
             let sctu = fmap (\_ -> ()) ctu            
-                st = processor sctu 
+                st = processor ctu 
            -- print sctu
            -- putStrLn ""
-            putStrLn $ ppProg $ code st
+            return $ ppProg $ code st
            -- print $ FCon.syms st

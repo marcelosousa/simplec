@@ -30,17 +30,18 @@ data Code ident n
 data NodeTag = LoopHead | IfJoin | Entry | Exit
   deriving (Show, Eq)
 
-data NodeInfo ident n
- = NodeInfo 
+data EdgeInfo ident n
+ = EdgeInfo 
    {
      node_tags :: [NodeTag]
    , node_code :: Code ident n
    }
   deriving Show
 
-instance Eq (NodeInfo ident n) where
+instance Eq (EdgeInfo ident n) where
   (==) n1 n2 = node_tags n1 == node_tags n2
 
+type EdgeId = Int
 type Graphs ident n
  = Map ident (Graph ident n)
 
@@ -48,8 +49,8 @@ data Graph ident n
  = Graph
    {
      entry_node :: NodeId              -- entry point
-   , graph :: Map NodeId [NodeId]      -- successors
-   , node_table :: Map NodeId (NodeInfo ident n) -- information
+   , graph :: Map NodeId [(EdgeId,NodeId)]      -- successors
+   , edge_table :: Map EdgeId (EdgeInfo ident n) -- information
    }
   deriving Show
 
@@ -66,39 +67,40 @@ data FlowState ident node
   , next  :: [NodeId] 
   , switch_exit :: Maybe NodeId 
   , pc_counter :: NodeId
+  , edge_counter :: EdgeId 
   } deriving Show
 
 init_st :: FlowState ident node
-init_st = FlowState M.empty undefined M.empty [] 0 [] Nothing 0
+init_st = FlowState M.empty undefined M.empty [] 0 [] Nothing 0 0
 
 type FlowOp ident node val = State (FlowState ident node) val
 
 -- | API
-addNode :: NodeId -> NodeInfo ident node -> FlowOp ident node ()
-addNode nId nInfo = do
+addEdgeInfo :: EdgeId -> EdgeInfo ident node -> FlowOp ident node ()
+addEdgeInfo eId eInfo = do
   p@FlowState{..} <- get
-  let table = node_table this
-  case M.lookup nId table of
+  let table = edge_table this
+  case M.lookup eId table of
     Nothing -> do
-      let new_table = M.insert nId nInfo table 
-          this' = this {node_table = new_table}
+      let new_table = M.insert eId eInfo table 
+          this' = this {edge_table = new_table}
       put p {this = this'}
     Just info ->
-      if nInfo == info
+      if eInfo == info
       then return ()
       else error "different info's: not sure what to do"
  
-addEdge :: NodeId -> NodeId -> FlowOp ident node ()
-addEdge nA nB = do 
+addEdge :: NodeId -> EdgeId -> NodeId -> FlowOp ident node ()
+addEdge nA eI nB = do 
   p@FlowState{..} <- get
   let gr = graph this
   case M.lookup nA gr of
     Nothing -> do
-      let new_gr = M.insert nA [nB] gr 
+      let new_gr = M.insert nA [(eI,nB)] gr 
           this' = this {graph = new_gr}
       put p {this = this'}
     Just nodes -> do
-      let n = nub $ nB:nodes
+      let n = nub $ (eI,nB):nodes
           new_gr = M.insert nA n gr
           this' = this {graph = new_gr}
       put p {this = this'}
@@ -119,6 +121,13 @@ incCounter = do
   p@FlowState{..} <- get
   let c' = pc_counter + 1
   put p {pc_counter = c'}
+  return c'
+
+incEdCounter :: FlowOp ident node Int
+incEdCounter = do
+  p@FlowState{..} <- get
+  let c' = edge_counter + 1
+  put p {edge_counter = c'}
   return c'
 
 addEntry :: Ord ident => ident -> NodeId -> FlowOp ident node ()
@@ -252,33 +261,37 @@ computeGraphBody :: Ord ident => Statement ident node -> FlowOp ident node ()
 computeGraphBody stmt =
   case stmt of
     Break n -> do
+      eId <- incEdCounter
       curr <- getCurrent
       switch_exit <- getSwitch
       next <- do
         case switch_exit of
           Nothing -> getNext
           Just l  -> return l
-      let nInfo = NodeInfo [] (E Skip) 
-      addNode curr nInfo
-      addEdge curr next 
+      let eInfo = EdgeInfo [] (E Skip) 
+      addEdgeInfo eId eInfo
+      addEdge curr eId next 
     Case expr body n -> do
+      eId <- incEdCounter
       curr <- getCurrent
       new <- incCounter
       replaceCurrent new
-      let nInfo = NodeInfo [] (E expr)
-      addNode curr nInfo
-      addEdge curr new
+      let eInfo = EdgeInfo [] (E expr)
+      addEdgeInfo eId eInfo
+      addEdge curr eId new
       computeGraphBody body 
     Cases lower upper body n -> do
       cur <- getCurrent
+      lowerId <- incEdCounter
+      upperId <- incEdCounter
       lowerPc <- incCounter
       upperPc <- incCounter
-      let lowerInfo = NodeInfo [] (E lower)
-          upperInfo = NodeInfo [] (E upper)
-      addNode cur lowerInfo 
-      addNode lowerPc upperInfo
-      addEdge cur lowerPc
-      addEdge lowerPc upperPc
+      let lowerInfo = EdgeInfo [] (E lower)
+          upperInfo = EdgeInfo [] (E upper)
+      addEdgeInfo lowerId lowerInfo 
+      addEdgeInfo upperId upperInfo
+      addEdge cur lowerId lowerPc
+      addEdge lowerPc upperId upperPc
       replaceCurrent upperPc 
       computeGraphBody body 
     Compound idents items n ->
@@ -286,100 +299,102 @@ computeGraphBody stmt =
         [] -> computeGraphCompound items
         _ -> error "compound has idents"
     Cont n -> do
+      edgeId <- incEdCounter
       curr <- getCurrent
       prev <- getPrev
-      let nInfo = NodeInfo [] (E Skip) 
-      addNode curr nInfo
-      addEdge curr prev 
+      let eInfo = EdgeInfo [] (E Skip) 
+      addEdgeInfo edgeId eInfo
+      addEdge curr edgeId prev 
     Default stat n ->  
       computeGraphBody stat
     Expr mExpr n -> 
       case mExpr of
         Nothing -> return ()
         Just e  -> do 
+          edgeId <- incEdCounter
           curr <- getCurrent
           next <- getNext
-          let nInfo = NodeInfo [] (E e) 
-          trace ("Expr: " ++ show curr) $ addNode curr nInfo
-          addEdge curr next 
+          let eInfo = EdgeInfo [] (E e) 
+          addEdgeInfo edgeId eInfo
+          addEdge curr edgeId next 
           replaceCurrent next 
     For begin cond end body n -> computeFor begin cond end body 
     Goto ident n -> do
+      edgeId <- incEdCounter
       curr <- getCurrent
       next <- getPCLabel ident 
-      let nInfo = NodeInfo [] (E Skip) 
-      addNode curr nInfo
-      addEdge curr next
-      next' <- incCounter
-      replaceCurrent next'      
+      let eInfo = EdgeInfo [] (E Skip) 
+      addEdgeInfo edgeId  eInfo
+      addEdge curr edgeId next
     GotoPtr expr n -> error "GotoPtr not supported"
     If cond tStmt mEStmt n -> do
       curr <- getCurrent
       next <- getNext -- Join point
+      thenEdge <- incEdCounter
+      elseEdge <- incEdCounter
+      joinTEdge <- incEdCounter
+      joinEEdge <- incEdCounter
       thenPc <- incCounter
       elsePc <- incCounter
-      let nInfo = NodeInfo [] (E Skip)
-          nThen = NodeInfo [] (E cond)
-          nElse = NodeInfo [] (E (Unary CNegOp cond))
-          nJoin = NodeInfo [IfJoin] (E Skip) 
-      addNode curr nInfo
-      addNode thenPc nThen 
-      addNode elsePc nElse 
-      addEdge curr thenPc
-      addEdge curr elsePc
-      nextT <- incCounter
-      addEdge thenPc nextT 
-      replaceCurrent nextT 
+      let eThen = EdgeInfo [] (E cond)
+          eElse = EdgeInfo [] (E (Unary CNegOp cond))
+          eJoin = EdgeInfo [IfJoin] (E Skip)
+      -- Add the edges from the branches
+      addEdgeInfo thenEdge eThen
+      addEdgeInfo elseEdge eElse
+      addEdge curr thenEdge thenPc
+      addEdge curr elseEdge elsePc
+      -- Add the edges info for the joins
+      addEdgeInfo joinTEdge eJoin 
+      addEdgeInfo joinEEdge eJoin
+      -- Execute then branch 
+      replaceCurrent thenPc 
       computeGraphBody tStmt
-      currentThen <- getCurrent
-      let nAThen = NodeInfo [] (E Skip)
-      -- addNode next nJoin
-      addNode currentThen nAThen
-      addEdge currentThen next
+      -- Add the join edge from the then
+      curr <- getCurrent
+      addEdge curr joinTEdge next
       case mEStmt of
         Nothing -> do
-          next <- getNext
-          addEdge elsePc next 
+          addEdge elsePc joinEEdge next 
         Just eStmt -> do
-          nextE <- incCounter
-          addEdge elsePc nextE 
-          replaceCurrent nextE 
+          replaceCurrent elsePc 
           computeGraphBody eStmt
-          currentElse <- getCurrent
-          let nAElse = NodeInfo [] (E Skip)
-          addNode currentElse nAElse
-          addEdge currentElse next
+          curr <- getCurrent
+          addEdge curr joinEEdge next
           replaceCurrent next
     Label sym stat attrs n ->
       case attrs of
         [] -> do
+          eId <- incEdCounter
           curr <- getPCLabel sym 
           next <- incCounter
-          let nInfo = NodeInfo [] (E Skip)
-          addNode curr nInfo
-          addEdge curr next
+          let eInfo = EdgeInfo [] (E Skip)
+          addEdgeInfo eId eInfo
+          addEdge curr eId next
           replaceCurrent next
           computeGraphBody stat
         _ -> error "cant handle label with attributes"
     -- TODO: Need to warn the next one 
     Return mExpr n -> do
+      eId <- incEdCounter
       curr <- getCurrent
       next <- getNext 
-      let nInfo = case mExpr of
-            Nothing -> NodeInfo [Exit] (E Skip)
-            Just e  -> NodeInfo [Exit] (E e)
-      addNode curr nInfo
-      addEdge curr next
+      let eInfo = case mExpr of
+            Nothing -> EdgeInfo [Exit] (E Skip)
+            Just e  -> EdgeInfo [Exit] (E e)
+      addEdgeInfo eId eInfo
+      addEdge curr eId next
     -- Be careful with the case statements
     Switch cond body n -> do
+      eId <- incEdCounter
       curr <- getCurrent
       next <- incCounter
       prev_switch <- getSwitch
       prev_next <- getNext
       replaceSwitch (Just prev_next)
-      let nInfo = NodeInfo [] (E cond)
-      addNode curr nInfo
-      addEdge curr next
+      let eInfo = EdgeInfo [] (E cond)
+      addEdgeInfo eId eInfo
+      addEdge curr eId next
       replaceCurrent next
       computeGraphBody body
       replaceSwitch prev_switch
@@ -408,30 +423,36 @@ computeFor begin cond end body = do
   -- Take care of the initialization part
   case begin of
     Left init -> do
+      iEid <- incEdCounter
       let initInfo = case init of
-            Nothing -> NodeInfo [] (E Skip)
-            Just i  -> NodeInfo [] (E i)
+            Nothing -> EdgeInfo [] (E Skip)
+            Just i  -> EdgeInfo [] (E i)
       curr <- getCurrent
-      addNode curr initInfo
+      addEdgeInfo iEid initInfo
       next <- incCounter
-      addEdge curr next 
+      addEdge curr iEid next 
       replaceCurrent next 
     Right decls -> computeGraphDecls decls
   -- After initialization we have an usual while loop
   -- The current should be the condition and the scope
   condPc <- getCurrent
-  let nInfo = NodeInfo [LoopHead] (E Skip)
+  condEId <- incEdCounter
+  trueEId <- incEdCounter
+  falseEId <- incEdCounter
+  let eInfo = EdgeInfo [LoopHead] (E Skip)
       _cond = case cond of
          Nothing -> Const (BoolConst True)
          Just e  -> e
-      nTrue = NodeInfo [] (E _cond)
-      nFalse = NodeInfo [] (E (Unary CNegOp _cond))
-  addNode condPc nInfo
+      eTrue = EdgeInfo [] (E _cond)
+      eFalse = EdgeInfo [] (E (Unary CNegOp _cond))
+  addEdgeInfo condEId eInfo
+  addEdgeInfo trueEId eTrue
+  addEdgeInfo falseEId eFalse
   truePc <- incCounter
   falsePc <- getNext
   -- Add the edges from the loop head
-  addEdge condPc truePc
-  addEdge condPc falsePc
+  addEdge condPc trueEId truePc
+  addEdge condPc falseEId falsePc
   -- Going to do the loop body now
   replaceCurrent truePc
   endPc <- incCounter
@@ -439,14 +460,16 @@ computeFor begin cond end body = do
   computeGraphBody body
   -- New current should be at the end
   curr <- getCurrent
-  let nTran = NodeInfo [] (E Skip)
-      nEnd = case end of
-        Nothing -> NodeInfo [] (E Skip)
-        Just e -> NodeInfo [] (E e)
-  addNode curr nTran
-  addNode endPc nEnd
-  addEdge curr endPc
-  addEdge endPc condPc 
+  tranE <- incEdCounter
+  endE  <- incEdCounter
+  let eTran = EdgeInfo [] (E Skip)
+      eEnd = case end of
+        Nothing -> EdgeInfo [] (E Skip)
+        Just e -> EdgeInfo [] (E e)
+  addEdgeInfo endE eEnd
+  addEdgeInfo tranE eTran
+  addEdge curr tranE endPc
+  addEdge endPc endE condPc 
   popPrev
   return ()
 
@@ -457,16 +480,16 @@ computeWhile cond body doWhile =
   else do
     curr <- getCurrent
     pushPrev curr
-    let nInfo = NodeInfo [LoopHead] (E Skip)
-        nTrue = NodeInfo [] (E cond)
-        nFalse = NodeInfo [] (E (Unary CNegOp cond))
-    addNode curr nInfo
+    trueE <- incEdCounter
+    falseE <- incEdCounter
+    let eTrue = EdgeInfo [LoopHead] (E cond)
+        eFalse = EdgeInfo [LoopHead] (E (Unary CNegOp cond))
     truePc <- incCounter
     falsePc <- incCounter
-    addNode curr nInfo
-    addNode truePc nTrue 
-    addEdge curr truePc
-    addEdge curr falsePc
+    addEdgeInfo trueE eTrue
+    addEdgeInfo falseE eFalse
+    addEdge curr trueE truePc
+    addEdge curr falseE falsePc
     replaceCurrent truePc 
     computeGraphBody body 
     popPrev
@@ -478,9 +501,10 @@ computeGraphDecls decls =
     [] -> return ()
     (d:rest) -> do
       curr <- getCurrent
-      let nInfo = NodeInfo [] (D d)
-      addNode curr nInfo
+      let eInfo = EdgeInfo [] (D d)
+      eId <- incEdCounter
+      addEdgeInfo eId eInfo
       next <- incCounter
-      addEdge curr next
+      addEdge curr eId next
       replaceCurrent next
       computeGraphDecls rest 

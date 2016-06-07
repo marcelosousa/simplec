@@ -257,7 +257,7 @@ computeGraph fn@FunDef{..} = do
   addThis sym 
   return ()
 
-computeGraphBody :: Ord ident => Statement ident node -> FlowOp ident node ()
+computeGraphBody :: Ord ident => Statement ident node -> FlowOp ident node Bool
 computeGraphBody stmt =
   case stmt of
     Break n -> do
@@ -270,7 +270,8 @@ computeGraphBody stmt =
           Just l  -> return l
       let eInfo = EdgeInfo [] (E Skip) 
       addEdgeInfo eId eInfo
-      addEdge curr eId next 
+      addEdge curr eId next
+      return False 
     Case expr body n -> do
       eId <- incEdCounter
       curr <- getCurrent
@@ -304,12 +305,13 @@ computeGraphBody stmt =
       prev <- getPrev
       let eInfo = EdgeInfo [] (E Skip) 
       addEdgeInfo edgeId eInfo
-      addEdge curr edgeId prev 
+      addEdge curr edgeId prev
+      return False 
     Default stat n ->  
       computeGraphBody stat
     Expr mExpr n -> 
       case mExpr of
-        Nothing -> return ()
+        Nothing -> return False
         Just e  -> do 
           edgeId <- incEdCounter
           curr <- getCurrent
@@ -317,7 +319,8 @@ computeGraphBody stmt =
           let eInfo = EdgeInfo [] (E e) 
           addEdgeInfo edgeId eInfo
           addEdge curr edgeId next 
-          replaceCurrent next 
+          replaceCurrent next
+          return False 
     For begin cond end body n -> computeFor begin cond end body 
     Goto ident n -> do
       edgeId <- incEdCounter
@@ -326,6 +329,7 @@ computeGraphBody stmt =
       let eInfo = EdgeInfo [] (E Skip) 
       addEdgeInfo edgeId  eInfo
       addEdge curr edgeId next
+      return False
     GotoPtr expr n -> error "GotoPtr not supported"
     If cond tStmt mEStmt n -> do
       curr <- getCurrent
@@ -349,19 +353,30 @@ computeGraphBody stmt =
       addEdgeInfo joinEEdge eJoin
       -- Execute then branch 
       replaceCurrent thenPc 
-      computeGraphBody tStmt
+      bT <- computeGraphBody tStmt
       -- Add the join edge from the then
-      curr <- getCurrent
-      addEdge curr joinTEdge next
+      _ <- if not bT 
+      then do
+        curr <- getCurrent
+        addEdge curr joinTEdge next
+        return False
+      else return False
       case mEStmt of
         Nothing -> do
-          addEdge elsePc joinEEdge next 
+          addEdge elsePc joinEEdge next
+          return False 
         Just eStmt -> do
-          replaceCurrent elsePc 
-          computeGraphBody eStmt
-          curr <- getCurrent
-          addEdge curr joinEEdge next
-          replaceCurrent next
+          replaceCurrent elsePc
+          bE <- computeGraphBody eStmt
+          trace ("inside if with bE = " ++ show bE ) $ if not bE 
+          then do 
+            curr <- getCurrent
+            addEdge curr joinEEdge next
+            replaceCurrent next
+            return False
+          else do
+            replaceCurrent next 
+            return False
     Label sym stat attrs n ->
       case attrs of
         [] -> do
@@ -384,6 +399,7 @@ computeGraphBody stmt =
             Just e  -> EdgeInfo [Exit] (E e)
       addEdgeInfo eId eInfo
       addEdge curr eId next
+      return True
     -- Be careful with the case statements
     Switch cond body n -> do
       eId <- incEdCounter
@@ -398,30 +414,44 @@ computeGraphBody stmt =
       replaceCurrent next
       computeGraphBody body
       replaceSwitch prev_switch
+      return False
     While cond body isDoWhile n -> computeWhile cond body isDoWhile
 
-computeGraphCompound :: Ord ident => [CompoundBlockItem ident a] -> FlowOp ident a () 
+computeGraphCompound :: Ord ident => [CompoundBlockItem ident a] -> FlowOp ident a Bool
 computeGraphCompound list =
   case list of
-    [] -> return () 
+    [] -> return False
+    [item] -> do 
+      next <- incCounter
+      pushNext next
+      case item of
+        BlockStmt stmt -> do
+          b <- computeGraphBody stmt
+          popNext
+          return b
+        BlockDecl decls -> do
+          b <- computeGraphDecls decls
+          popNext
+          return b
+        NestedFunDef _ -> error "cant handle nested functions"
     (item:rest) -> do
       curr <- getCurrent
       next <- incCounter
       trace ("Compound: " ++ show (curr,next)) $ pushNext next
       case item of
         BlockStmt stmt -> do
-          computeGraphBody stmt
+          b <- computeGraphBody stmt
           popNext
           computeGraphCompound rest
         BlockDecl decls -> do
-          computeGraphDecls decls
+          b <- computeGraphDecls decls
           popNext
           computeGraphCompound rest
         NestedFunDef _ -> error "cant handle nested functions"
 
 computeFor begin cond end body = do
   -- Take care of the initialization part
-  case begin of
+  _ <- case begin of
     Left init -> do
       iEid <- incEdCounter
       let initInfo = case init of
@@ -431,7 +461,8 @@ computeFor begin cond end body = do
       addEdgeInfo iEid initInfo
       next <- incCounter
       addEdge curr iEid next 
-      replaceCurrent next 
+      replaceCurrent next
+      return False 
     Right decls -> computeGraphDecls decls
   -- After initialization we have an usual while loop
   -- The current should be the condition and the scope
@@ -471,9 +502,9 @@ computeFor begin cond end body = do
   addEdge curr tranE endPc
   addEdge endPc endE condPc 
   popPrev
-  return ()
+  return False
 
-computeWhile :: Ord ident => Expression ident a -> Statement ident a -> Bool -> FlowOp ident a ()
+computeWhile :: Ord ident => Expression ident a -> Statement ident a -> Bool -> FlowOp ident a Bool
 computeWhile cond body doWhile = 
   if doWhile
   then error "no support for do while loops"
@@ -493,12 +524,12 @@ computeWhile cond body doWhile =
     replaceCurrent truePc 
     computeGraphBody body 
     popPrev
-    return ()
+    return False
 
-computeGraphDecls :: Ord ident => [Declaration ident a] -> FlowOp ident a ()
+computeGraphDecls :: Ord ident => [Declaration ident a] -> FlowOp ident a Bool
 computeGraphDecls decls = 
   case decls of
-    [] -> return ()
+    [] -> return False
     (d:rest) -> do
       curr <- getCurrent
       let eInfo = EdgeInfo [] (D d)

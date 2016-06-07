@@ -68,7 +68,7 @@ data FlowState ident node
   , prev :: [NodeId] 
   , current :: NodeId 
   , next  :: [NodeId] 
-  , switch_exit :: Maybe NodeId 
+  , exit :: Maybe NodeId 
   , pc_counter :: NodeId
   , edge_counter :: EdgeId 
   } deriving Show
@@ -144,15 +144,15 @@ getCurrent = do
   p@FlowState{..} <- get
   return current
 
-getSwitch :: FlowOp ident node (Maybe NodeId)
-getSwitch = do
+getExit :: FlowOp ident node (Maybe NodeId)
+getExit = do
   p@FlowState{..} <- get
-  return switch_exit 
+  return exit 
 
-replaceSwitch :: Maybe NodeId -> FlowOp ident node ()
-replaceSwitch n = do
+replaceExit :: Maybe NodeId -> FlowOp ident node ()
+replaceExit n = do
   p@FlowState{..} <- get
-  put p {switch_exit = n}
+  put p {exit = n}
 
 replaceCurrent :: NodeId -> FlowOp ident node ()
 replaceCurrent n = do
@@ -266,15 +266,15 @@ computeGraphBody stmt =
     Break n -> do
       eId <- incEdCounter
       curr <- getCurrent
-      switch_exit <- getSwitch
+      exit <- getExit
       next <- do
-        case switch_exit of
+        case exit of
           Nothing -> getNext
           Just l  -> return l
       let eInfo = EdgeInfo [] (E Skip) 
       addEdgeInfo eId eInfo
       addEdge curr eId next
-      return False 
+      return True 
     Case expr body n -> do
       eId <- incEdCounter
       curr <- getCurrent
@@ -309,7 +309,7 @@ computeGraphBody stmt =
       let eInfo = EdgeInfo [] (E Skip) 
       addEdgeInfo edgeId eInfo
       addEdge curr edgeId prev
-      return False 
+      return True 
     Default stat n ->  
       computeGraphBody stat
     Expr mExpr n -> 
@@ -409,15 +409,15 @@ computeGraphBody stmt =
       eId <- incEdCounter
       curr <- getCurrent
       next <- incCounter
-      prev_switch <- getSwitch
+      prev_exit <- getExit
       prev_next <- getNext
-      replaceSwitch (Just prev_next)
+      replaceExit (Just prev_next)
       let eInfo = EdgeInfo [] (E cond)
       addEdgeInfo eId eInfo
       addEdge curr eId next
       replaceCurrent next
       computeGraphBody body
-      replaceSwitch prev_switch
+      replaceExit prev_exit
       return False
     While cond body isDoWhile n -> computeWhile cond body isDoWhile
 
@@ -528,6 +528,8 @@ computeWhile cond body doWhile =
     addEdge curr trueE truePc
     addEdge curr falseE falsePc
     replaceCurrent truePc 
+    prev_exit <- getExit
+    replaceExit (Just falsePc)
     computeGraphBody body 
     popPrev
     let eEnd = EdgeInfo [] (E Skip)
@@ -536,6 +538,7 @@ computeWhile cond body doWhile =
     _curr <- getCurrent
     addEdge _curr endE curr
     replaceCurrent falsePc
+    replaceExit prev_exit
     return False
 
 computeGraphDecls :: Ord ident => [Declaration ident a] -> FlowOp ident a Bool

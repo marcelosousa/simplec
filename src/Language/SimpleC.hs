@@ -9,6 +9,8 @@ import Language.SimpleC.Converter
 import Language.SimpleC.Printer
 import Language.SimpleC.Flow
 
+import System.FilePath.Posix
+
 parseFile :: FilePath -> IO CTranslUnit
 parseFile f  = do
   parse_result <- parseCFile (newGCC "gcc") Nothing ["-I/home/msousa/benchmarks/musketeer/debian/packages/coreutils-8.21/lib/"] f
@@ -39,6 +41,7 @@ flow f = do ctu <- parseFile f
             let st = processor ctu
                 prog = code st
                 grs = computeGraphs prog
+                fname = fst $ splitExtension f
             print $ fmap (\_ -> ()) ctu 
             putStrLn $ ppProg prog
-            print grs 
+            writeFile (fname ++ ".dot") $ pp_dot_graphs grs

@@ -17,7 +17,7 @@ newtype SymId = SymId Int
   deriving (Eq, Ord)
 
 instance Show SymId where
-  show (SymId i) = "%"++show i
+  show (SymId i) = show i
    
 type BinaryOp = CBinaryOp
 type UnaryOp = CUnaryOp

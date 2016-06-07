@@ -18,7 +18,10 @@ import qualified Data.Map as M
 import Data.List 
 import Data.Map (Map)
 import Control.Monad.State.Lazy
-import Debug.Trace
+import qualified Debug.Trace as T
+
+trace a b = b
+-- trace = T.trace
 
 type NodeId = Int
 

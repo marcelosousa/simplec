@@ -14,6 +14,7 @@ import Language.C.Syntax.Constants
 
 -- Symbol Id
 newtype SymId = SymId Int
+  deriving (Eq, Ord)
 
 instance Show SymId where
   show (SymId i) = "%"++show i

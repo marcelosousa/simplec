@@ -18,6 +18,7 @@ import qualified Data.Map as M
 import Data.List 
 import Data.Map (Map)
 import Control.Monad.State.Lazy
+import Debug.Trace
 
 type NodeId = Int
 
@@ -63,11 +64,12 @@ data FlowState ident node
   , prev :: [NodeId] 
   , current :: NodeId 
   , next  :: [NodeId] 
+  , switch_exit :: Maybe NodeId 
   , pc_counter :: NodeId
   } deriving Show
 
 init_st :: FlowState ident node
-init_st = FlowState M.empty undefined M.empty [] 0 [] 0
+init_st = FlowState M.empty undefined M.empty [] 0 [] Nothing 0
 
 type FlowOp ident node val = State (FlowState ident node) val
 
@@ -129,6 +131,16 @@ getCurrent :: FlowOp ident node NodeId
 getCurrent = do
   p@FlowState{..} <- get
   return current
+
+getSwitch :: FlowOp ident node (Maybe NodeId)
+getSwitch = do
+  p@FlowState{..} <- get
+  return switch_exit 
+
+replaceSwitch :: Maybe NodeId -> FlowOp ident node ()
+replaceSwitch n = do
+  p@FlowState{..} <- get
+  put p {switch_exit = n}
 
 replaceCurrent :: NodeId -> FlowOp ident node ()
 replaceCurrent n = do
@@ -241,7 +253,11 @@ computeGraphBody stmt =
   case stmt of
     Break n -> do
       curr <- getCurrent
-      next <- getNext
+      switch_exit <- getSwitch
+      next <- do
+        case switch_exit of
+          Nothing -> getNext
+          Just l  -> return l
       let nInfo = NodeInfo [] (E Skip) 
       addNode curr nInfo
       addEdge curr next 
@@ -277,14 +293,14 @@ computeGraphBody stmt =
       addEdge curr prev 
     Default stat n ->  
       computeGraphBody stat
-    Expr mExpr n ->
+    Expr mExpr n -> 
       case mExpr of
         Nothing -> return ()
         Just e  -> do 
           curr <- getCurrent
           next <- getNext
-          let nInfo = NodeInfo [] (E Skip) 
-          addNode curr nInfo
+          let nInfo = NodeInfo [] (E e) 
+          trace ("Expr: " ++ show curr) $ addNode curr nInfo
           addEdge curr next 
           replaceCurrent next 
     For begin cond end body n -> computeFor begin cond end body 
@@ -299,25 +315,41 @@ computeGraphBody stmt =
     GotoPtr expr n -> error "GotoPtr not supported"
     If cond tStmt mEStmt n -> do
       curr <- getCurrent
+      next <- getNext -- Join point
       thenPc <- incCounter
       elsePc <- incCounter
       let nInfo = NodeInfo [] (E Skip)
           nThen = NodeInfo [] (E cond)
-          nElse = NodeInfo [] (E (Unary CNegOp cond)) 
+          nElse = NodeInfo [] (E (Unary CNegOp cond))
+          nJoin = NodeInfo [IfJoin] (E Skip) 
       addNode curr nInfo
+      addNode thenPc nThen 
+      addNode elsePc nElse 
       addEdge curr thenPc
       addEdge curr elsePc
-      nextThen <- incCounter
-      replaceCurrent nextThen
+      nextT <- incCounter
+      addEdge thenPc nextT 
+      replaceCurrent nextT 
       computeGraphBody tStmt
+      currentThen <- getCurrent
+      let nAThen = NodeInfo [] (E Skip)
+      -- addNode next nJoin
+      addNode currentThen nAThen
+      addEdge currentThen next
       case mEStmt of
         Nothing -> do
           next <- getNext
           addEdge elsePc next 
         Just eStmt -> do
-          nextElse <- incCounter
-          replaceCurrent nextElse 
+          nextE <- incCounter
+          addEdge elsePc nextE 
+          replaceCurrent nextE 
           computeGraphBody eStmt
+          currentElse <- getCurrent
+          let nAElse = NodeInfo [] (E Skip)
+          addNode currentElse nAElse
+          addEdge currentElse next
+          replaceCurrent next
     Label sym stat attrs n ->
       case attrs of
         [] -> do
@@ -332,32 +364,123 @@ computeGraphBody stmt =
     -- TODO: Need to warn the next one 
     Return mExpr n -> do
       curr <- getCurrent
-      next <- incCounter
+      next <- getNext 
       let nInfo = case mExpr of
-            Nothing -> NodeInfo [] (E Skip)
-            Just e  -> NodeInfo [] (E e)
+            Nothing -> NodeInfo [Exit] (E Skip)
+            Just e  -> NodeInfo [Exit] (E e)
       addNode curr nInfo
       addEdge curr next
     -- Be careful with the case statements
     Switch cond body n -> do
       curr <- getCurrent
       next <- incCounter
+      prev_switch <- getSwitch
+      prev_next <- getNext
+      replaceSwitch (Just prev_next)
       let nInfo = NodeInfo [] (E cond)
       addNode curr nInfo
       addEdge curr next
       replaceCurrent next
-      computeGraphBody body 
+      computeGraphBody body
+      replaceSwitch prev_switch
     While cond body isDoWhile n -> computeWhile cond body isDoWhile
 
-computeGraphCompound = undefined
-computeFor begin cond end body = undefined 
-{- 
+computeGraphCompound :: Ord ident => [CompoundBlockItem ident a] -> FlowOp ident a () 
+computeGraphCompound list =
+  case list of
+    [] -> return () 
+    (item:rest) -> do
+      curr <- getCurrent
+      next <- incCounter
+      trace ("Compound: " ++ show (curr,next)) $ pushNext next
+      case item of
+        BlockStmt stmt -> do
+          computeGraphBody stmt
+          popNext
+          computeGraphCompound rest
+        BlockDecl decls -> do
+          computeGraphDecls decls
+          popNext
+          computeGraphCompound rest
+        NestedFunDef _ -> error "cant handle nested functions"
 
-(Either (Maybe (Expression ident a)) [Declaration ident a])
-        (Maybe (Expression ident a))
-        (Maybe (Expression ident a))
-        (Statement ident a)
--}
-computeWhile = undefined
--- (Expression ident a) (Statement ident a) Bool a
+computeFor begin cond end body = do
+  -- Take care of the initialization part
+  case begin of
+    Left init -> do
+      let initInfo = case init of
+            Nothing -> NodeInfo [] (E Skip)
+            Just i  -> NodeInfo [] (E i)
+      curr <- getCurrent
+      addNode curr initInfo
+      next <- incCounter
+      addEdge curr next 
+      replaceCurrent next 
+    Right decls -> computeGraphDecls decls
+  -- After initialization we have an usual while loop
+  -- The current should be the condition and the scope
+  condPc <- getCurrent
+  let nInfo = NodeInfo [LoopHead] (E Skip)
+      _cond = case cond of
+         Nothing -> Const (BoolConst True)
+         Just e  -> e
+      nTrue = NodeInfo [] (E _cond)
+      nFalse = NodeInfo [] (E (Unary CNegOp _cond))
+  addNode condPc nInfo
+  truePc <- incCounter
+  falsePc <- getNext
+  -- Add the edges from the loop head
+  addEdge condPc truePc
+  addEdge condPc falsePc
+  -- Going to do the loop body now
+  replaceCurrent truePc
+  endPc <- incCounter
+  pushPrev endPc
+  computeGraphBody body
+  -- New current should be at the end
+  curr <- getCurrent
+  let nTran = NodeInfo [] (E Skip)
+      nEnd = case end of
+        Nothing -> NodeInfo [] (E Skip)
+        Just e -> NodeInfo [] (E e)
+  addNode curr nTran
+  addNode endPc nEnd
+  addEdge curr endPc
+  addEdge endPc condPc 
+  popPrev
+  return ()
 
+computeWhile :: Ord ident => Expression ident a -> Statement ident a -> Bool -> FlowOp ident a ()
+computeWhile cond body doWhile = 
+  if doWhile
+  then error "no support for do while loops"
+  else do
+    curr <- getCurrent
+    pushPrev curr
+    let nInfo = NodeInfo [LoopHead] (E Skip)
+        nTrue = NodeInfo [] (E cond)
+        nFalse = NodeInfo [] (E (Unary CNegOp cond))
+    addNode curr nInfo
+    truePc <- incCounter
+    falsePc <- incCounter
+    addNode curr nInfo
+    addNode truePc nTrue 
+    addEdge curr truePc
+    addEdge curr falsePc
+    replaceCurrent truePc 
+    computeGraphBody body 
+    popPrev
+    return ()
+
+computeGraphDecls :: Ord ident => [Declaration ident a] -> FlowOp ident a ()
+computeGraphDecls decls = 
+  case decls of
+    [] -> return ()
+    (d:rest) -> do
+      curr <- getCurrent
+      let nInfo = NodeInfo [] (D d)
+      addNode curr nInfo
+      next <- incCounter
+      addEdge curr next
+      replaceCurrent next
+      computeGraphDecls rest 

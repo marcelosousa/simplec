@@ -7,7 +7,7 @@ import Language.C.Data.Ident
 import Language.SimpleC.AST 
 import Language.SimpleC.Converter
 import Language.SimpleC.Printer
--- import Language.SimpleC.Flow
+import Language.SimpleC.Flow
 
 parseFile :: FilePath -> IO CTranslUnit
 parseFile f  = do
@@ -34,3 +34,11 @@ test f = do ctu <- parseFile f
            -- putStrLn ""
             return $ ppProg $ code st
            -- print $ FCon.syms st
+
+flow f = do ctu <- parseFile f
+            let st = processor ctu
+                prog = code st
+                grs = computeGraphs prog
+            print $ fmap (\_ -> ()) ctu 
+            putStrLn $ ppProg prog
+            print grs 

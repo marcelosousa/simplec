@@ -1,5 +1,7 @@
 module Language.SimpleC where
-    
+
+import Data.Map 
+ 
 import Language.C 
 import Language.C.System.GCC  -- preprocessor used
 import Language.C.Data.Ident
@@ -11,37 +13,48 @@ import Language.SimpleC.Flow
 
 import System.FilePath.Posix
 
-parseFile :: FilePath -> IO CTranslUnit
-parseFile f  = do
-  parse_result <- parseCFile (newGCC "gcc") Nothing ["-I/home/msousa/benchmarks/musketeer/debian/packages/coreutils-8.21/lib/"] f
-  -- parse_result <- parseCFile (newGCC "gcc") Nothing [] f
+-- The result of the front-end
+--  AST of the file
+--  Control Flow Graphs per Function
+--  Symbol Table
+data FrontEnd node 
+ = FrontEnd 
+ { 
+   ast  :: Program SymId node
+ , cfgs :: Graphs SymId  node
+ , symt :: Map SymId Symbol
+ } deriving Show
+
+dParseFile = parseFile "-I/home/msousa/benchmarks/musketeer/debian/packages/coreutils-8.21/lib/"
+sParseFile = parseFile ""
+parseFile :: String -> FilePath -> IO CTranslUnit
+parseFile cOpt f  = do
+  parse_result <- parseCFile (newGCC "gcc") Nothing [cOpt] f
   case parse_result of
     Left parse_err -> do 
-        parse_result <- parseCFilePre f
-        case parse_result of
-            Left _ -> error (show parse_err)
-            Right ast -> return ast
+      parse_result <- parseCFilePre f
+      case parse_result of
+        Left _ -> error (show parse_err)
+        Right ast -> return ast
     Right ast      -> return ast
 
---extract :: FilePath -> IO SC.Program
---extract f = do ctu <- parseFile f
-----               print $ ctu
---               return $ translate ctu
+extract :: String -> FilePath -> IO (FrontEnd ())
+extract cOpt f = do 
+  ctu <- parseFile cOpt f
+  let s_ctu = fmap (\_ -> ()) ctu -- remove the nodes
+      proc_st = processor s_ctu   -- simplify the AST
+      ast = code proc_st          -- get the new AST
+      sym_table = syms proc_st    -- get the symbol table
+      cfgs = computeGraphs ast    -- compute the cfgs
+  return $ FrontEnd ast cfgs sym_table 
 
---test :: FilePath -> IO a
-test f = do ctu <- parseFile f
-            let sctu = fmap (\_ -> ()) ctu            
-                st = processor ctu 
-           -- print sctu
-           -- putStrLn ""
-            return $ ppProg $ code st
-           -- print $ FCon.syms st
-
-flow f = do ctu <- parseFile f
-            let st = processor ctu
-                prog = code st
-                grs = computeGraphs prog
-                fname = fst $ splitExtension f
-            print $ fmap (\_ -> ()) ctu 
-            putStrLn $ ppProg prog
-            writeFile (fname ++ ".dot") $ pp_dot_graphs grs
+test_flow f = do 
+  ctu <- sParseFile f
+  let s_ctu = fmap (\_ -> ()) ctu -- remove the nodes
+      proc_st = processor s_ctu   -- simplify the AST
+      ast = code proc_st          -- get the new AST
+      cfgs = computeGraphs ast    -- compute the cfgs
+      fname = fst $ splitExtension f
+  print $ s_ctu 
+  putStrLn $ ppProg ast 
+  writeFile (fname ++ ".dot") $ pp_dot_graphs cfgs

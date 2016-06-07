@@ -42,11 +42,10 @@ data Symbol =
   TypeSymbol
   VarSymbol
 -}
-
 data ProcessorState node
   = ProcState {
     godel   :: Map (Int, Scope) Int 
-  , syms    :: Map Int Symbol
+  , syms    :: Map SC.SymId Symbol
   , counter :: Int
   , code :: SC.Program SC.SymId node
   , scope :: Scope
@@ -126,7 +125,7 @@ instance Process Ident a SC.SymId where
       Nothing -> do
         k <- incCounter
         p@ProcState{..} <- get
-        let syms' = M.insert k (VarSym i) syms
+        let syms' = M.insert (SC.SymId k) (VarSym i) syms
             godel' = M.insert (hash,scope) k godel
         put p {syms=syms',godel=godel'}
         return $ SC.SymId k

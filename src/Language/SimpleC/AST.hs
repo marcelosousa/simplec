@@ -25,7 +25,6 @@ type AssignOp = CAssignOp
 type StructTag = CStructTag
 type At = NodeInfo 
 
-
 {-
 Given the AST of the C file:
 - It is easy to remove the NodeInfo
@@ -46,17 +45,6 @@ data Program ident a
     , defs    :: Definitions ident a
     , asm_ext :: AsmExt a
     } deriving Show
-
-data ProgramData
-  = ProgData 
-    {
-      prog :: Program Ident ()
-    , symbols :: !Symbols
-    , cfgs :: !CFG
-    }
-
-data Symbols = SymInfo
-data CFG = CFG
 
 -- | AsmExt : Not sure the use of this attr
 type AsmExt a = [CStringLiteral a] 

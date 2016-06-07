@@ -367,6 +367,7 @@ computeGraphBody stmt =
       case mEStmt of
         Nothing -> do
           addEdge elsePc joinEEdge next
+          replaceCurrent next 
           return False 
         Just eStmt -> do
           replaceCurrent elsePc
@@ -445,7 +446,9 @@ computeGraphCompound list =
         BlockStmt stmt -> do
           b <- computeGraphBody stmt
           popNext
-          computeGraphCompound rest
+          if b
+          then return False
+          else computeGraphCompound rest
         BlockDecl decls -> do
           b <- computeGraphDecls decls
           popNext
@@ -527,6 +530,12 @@ computeWhile cond body doWhile =
     replaceCurrent truePc 
     computeGraphBody body 
     popPrev
+    let eEnd = EdgeInfo [] (E Skip)
+    endE <- incEdCounter
+    addEdgeInfo endE eEnd
+    _curr <- getCurrent
+    addEdge _curr endE curr
+    replaceCurrent falsePc
     return False
 
 computeGraphDecls :: Ord ident => [Declaration ident a] -> FlowOp ident a Bool

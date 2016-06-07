@@ -17,7 +17,7 @@ newtype SymId = SymId Int
   deriving (Eq, Ord)
 
 instance Show SymId where
-  show (SymId i) = show i
+  show (SymId i) = "&#37;"++show i
    
 type BinaryOp = CBinaryOp
 type UnaryOp = CUnaryOp
@@ -411,8 +411,8 @@ instance (Show ident, Show a) => Show (Expression ident a) where
   show expr = case expr of
     AlignofExpr expr -> "alignofexpr("++show expr++")"
     AlignofType decl -> "alignofty("++show decl++")"
-    Assign assignOp lhs rhs -> show lhs++" "++show (pretty assignOp)++" "++show rhs 
-    Binary binaryOp lhs rhs -> show lhs++" "++show (pretty binaryOp)++" "++show rhs
+    Assign assignOp lhs rhs -> show lhs++" "++show assignOp++" "++show rhs 
+    Binary binaryOp lhs rhs -> show lhs++" "++show binaryOp++" "++show rhs
     BuiltinExpr c -> "builtin "++show c
     Call fnName args a -> 
       let argsS = case args of
@@ -439,5 +439,5 @@ instance (Show ident, Show a) => Show (Expression ident a) where
     SizeofType decl -> "sizeofty("++show decl++")"
     Skip -> "skip"
     StatExpr stat -> show stat 
-    Unary unaryOp expr -> show (pretty unaryOp)++show expr
+    Unary unaryOp expr -> show (unaryOp)++" "++show expr
     Var ident -> show ident

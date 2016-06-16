@@ -152,8 +152,7 @@ instance Process (CDeclaration a) a () where
     ty <- toType cdeclspec
     if null cdeclrs
     then addType ty
-    else do
-      -- | Process the C declarators
+    else do -- | Process the C declarators
       (declrs :: [SC.DeclElem SC.SymId a]) <- process cdeclrs 
       mapM_ (addDecl ty) declrs 
 

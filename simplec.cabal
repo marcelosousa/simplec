@@ -15,3 +15,4 @@ Library
       Language.SimpleC.AST
       Language.SimpleC.Printer
       Language.SimpleC.Converter
+      Language.SimpleC.Flow

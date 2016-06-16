@@ -8,22 +8,12 @@ import Language.C.Data.Ident
 
 import Language.SimpleC.AST 
 import Language.SimpleC.Converter
-import Language.SimpleC.Printer
 import Language.SimpleC.Flow
+import Language.SimpleC.Interpreter
+import Language.SimpleC.Printer
+import Language.SimpleC.Util
 
 import System.FilePath.Posix
-
--- The result of the front-end
---  AST of the file
---  Control Flow Graphs per Function
---  Symbol Table
-data FrontEnd node 
- = FrontEnd 
- { 
-   ast  :: Program SymId node
- , cfgs :: Graphs SymId  node
- , symt :: Map SymId Symbol
- } deriving Show
 
 dParseFile = parseFile "-I/home/msousa/benchmarks/musketeer/debian/packages/coreutils-8.21/lib/"
 sParseFile = parseFile ""

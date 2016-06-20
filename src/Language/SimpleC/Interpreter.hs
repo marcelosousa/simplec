@@ -64,7 +64,8 @@ interpreter = undefined
 -- computes an environment/configuration
 -- with the initial declarations
 i_env :: FrontEnd () -> InterOp ()
-i_env f@FrontEnd{..} = mapM_ interGDecl $ decls ast   
+i_env f@FrontEnd{..} =
+  mapM_ interGDecl $ decls ast   
 
 interGDecl :: Declaration SymId () -> InterOp ()
 interGDecl decl =
@@ -77,10 +78,12 @@ interGDecl decl =
                     Nothing -> error "Cant interpreter declarator without identifier"
                     Just id -> id
               full_type = Ty declr_type ty
-              ival = case initializer of
-                       Nothing -> init_value full_type
-                       Just init -> undefined
-              cell = MCell full_type ival
+          ival <- case initializer of
+                    Nothing -> return $ init_value full_type
+                    Just init -> case init of
+                      InitExpr expr -> interExpr expr
+                      InitList list -> error "interGDecl: InitList" 
+          let cell = MCell full_type ival
           addGlobal id cell 
     TypeDecl ty -> addType ty
 

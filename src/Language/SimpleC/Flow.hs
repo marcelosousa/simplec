@@ -45,25 +45,26 @@ instance Eq (EdgeInfo ident n) where
   (==) n1 n2 = node_tags n1 == node_tags n2
 
 type EdgeId = Int
-type Graphs ident n
- = Map ident (Graph ident n)
+type Graphs ident n st
+ = Map ident (Graph ident n st)
 
-data Graph ident n
+data Graph ident n st
  = Graph
    {
      entry_node :: NodeId                        -- entry point
    , graph :: Map NodeId [(EdgeId,NodeId)]       -- successors
    , edge_table :: Map EdgeId (EdgeInfo ident n) -- information
+   , node_table :: Map NodeId [st]               -- ^ states per thread 
    }
   deriving Show
 
-init_graph :: NodeId -> Graph ident a
-init_graph e = Graph e M.empty M.empty
+init_graph :: NodeId -> Graph ident a st
+init_graph e = Graph e M.empty M.empty M.empty
 
-data FlowState ident node
+data FlowState ident node st
   = FlowState {
-    graphs  :: Graphs ident node
-  , this    :: Graph ident node
+    graphs  :: Graphs ident node st
+  , this    :: Graph ident node st
   , entries :: Map ident NodeId
   , prev :: [NodeId] 
   , current :: NodeId 
@@ -73,13 +74,13 @@ data FlowState ident node
   , edge_counter :: EdgeId 
   } deriving Show
 
-init_st :: FlowState ident node
+init_st :: FlowState ident node st
 init_st = FlowState M.empty undefined M.empty [] 0 [] Nothing 0 0
 
-type FlowOp ident node val = State (FlowState ident node) val
+type FlowOp ident node val st = State (FlowState ident node st) val
 
 -- | API
-addEdgeInfo :: EdgeId -> EdgeInfo ident node -> FlowOp ident node ()
+addEdgeInfo :: EdgeId -> EdgeInfo ident node -> FlowOp ident node () st
 addEdgeInfo eId eInfo = do
   p@FlowState{..} <- get
   let table = edge_table this
@@ -93,7 +94,7 @@ addEdgeInfo eId eInfo = do
       then return ()
       else error "different info's: not sure what to do"
  
-addEdge :: NodeId -> EdgeId -> NodeId -> FlowOp ident node ()
+addEdge :: NodeId -> EdgeId -> NodeId -> FlowOp ident node () st
 addEdge nA eI nB = do 
   p@FlowState{..} <- get
   let gr = graph this
@@ -108,64 +109,64 @@ addEdge nA eI nB = do
           this' = this {graph = new_gr}
       put p {this = this'}
 
-addThis :: Ord ident => ident -> FlowOp ident node ()
+addThis :: Ord ident => ident -> FlowOp ident node () st
 addThis sym = do 
   p@FlowState{..} <- get
   let graphs' = M.insert sym this graphs
   put p {graphs = graphs'}
 
-replaceGraph :: Graph ident node -> FlowOp ident node ()
+replaceGraph :: Graph ident node st -> FlowOp ident node () st
 replaceGraph graph = do
   p@FlowState{..} <- get
   put p {this = graph}
  
-incCounter :: FlowOp ident node Int
+incCounter :: FlowOp ident node Int st
 incCounter = do
   p@FlowState{..} <- get
   let c' = pc_counter + 1
   put p {pc_counter = c'}
   return c'
 
-incEdCounter :: FlowOp ident node Int
+incEdCounter :: FlowOp ident node Int st
 incEdCounter = do
   p@FlowState{..} <- get
   let c' = edge_counter + 1
   put p {edge_counter = c'}
   return c'
 
-addEntry :: Ord ident => ident -> NodeId -> FlowOp ident node ()
+addEntry :: Ord ident => ident -> NodeId -> FlowOp ident node () st
 addEntry sym n = do
   p@FlowState{..} <- get
   let e = M.insert sym n entries
   put p {entries = e}
 
-getCurrent :: FlowOp ident node NodeId
+getCurrent :: FlowOp ident node NodeId st
 getCurrent = do
   p@FlowState{..} <- get
   return current
 
-getExit :: FlowOp ident node (Maybe NodeId)
+getExit :: FlowOp ident node (Maybe NodeId) st
 getExit = do
   p@FlowState{..} <- get
   return exit 
 
-replaceExit :: Maybe NodeId -> FlowOp ident node ()
+replaceExit :: Maybe NodeId -> FlowOp ident node () st
 replaceExit n = do
   p@FlowState{..} <- get
   put p {exit = n}
 
-replaceCurrent :: NodeId -> FlowOp ident node ()
+replaceCurrent :: NodeId -> FlowOp ident node () st
 replaceCurrent n = do
   p@FlowState{..} <- get
   put p {current = n}
 
-pushPrev :: NodeId -> FlowOp ident node ()
+pushPrev :: NodeId -> FlowOp ident node () st
 pushPrev n = do
   p@FlowState{..} <- get
   let e = n:prev
   put p {prev = e}
 
-popPrev :: FlowOp ident node NodeId
+popPrev :: FlowOp ident node NodeId st
 popPrev = do
   p@FlowState{..} <- get
   case prev of
@@ -174,20 +175,20 @@ popPrev = do
       put p {prev = xs}
       return x 
 
-getPrev :: FlowOp ident node NodeId
+getPrev :: FlowOp ident node NodeId st
 getPrev = do
   p@FlowState{..} <- get
   case prev of
     [] -> error "cant get current: empty"
     (x:xs) -> return x
  
-pushNext :: NodeId -> FlowOp ident node ()
+pushNext :: NodeId -> FlowOp ident node () st
 pushNext n = do
   p@FlowState{..} <- get
   let e = n:next 
   put p {next = e}
 
-popNext :: FlowOp ident node NodeId
+popNext :: FlowOp ident node NodeId st
 popNext = do
   p@FlowState{..} <- get
   case next of
@@ -196,7 +197,7 @@ popNext = do
       put p {next = xs}
       return x 
 
-getPCLabel :: Ord ident => ident -> FlowOp ident node NodeId
+getPCLabel :: Ord ident => ident -> FlowOp ident node NodeId st
 getPCLabel sym = do
   p@FlowState{..} <- get
   case M.lookup sym entries of
@@ -205,14 +206,14 @@ getPCLabel sym = do
       addEntry sym lab
       return lab 
  
-getNext :: FlowOp ident node NodeId
+getNext :: FlowOp ident node NodeId st
 getNext = do
   p@FlowState{..} <- get
   case next of
     [] -> error "cant get next: empty"
     (x:xs) -> return x
  
-getEntryId :: Ord ident => ident -> FlowOp ident node NodeId
+getEntryId :: Ord ident => ident -> FlowOp ident node NodeId st
 getEntryId sym = do
   p@FlowState{..} <- get
   case M.lookup sym entries of
@@ -220,14 +221,14 @@ getEntryId sym = do
     Just n  -> return n
 
 -- | Main Functions
-computeGraphs :: Ord ident => Program ident node -> Graphs ident node
+computeGraphs :: Ord ident => Program ident node -> Graphs ident node st
 computeGraphs prog = 
   let ((),st) = runState (toFlow prog) init_st
   in graphs st
 
 -- | Main ToFlow class 
 class Flow a i n v  where
-  toFlow :: a -> FlowOp i n v
+  toFlow :: a -> FlowOp i n v st
 
 -- | Flow Program 
 instance Ord ident => Flow (Program ident node) ident node () where
@@ -243,13 +244,13 @@ getFnIdent fn@FunDef{..} = _getFnIdent symbol
         Nothing -> error "compute entry: no function declarator"
         Just sym -> sym
 
-computeEntry :: Ord ident => FunctionDef ident node -> FlowOp ident node ()
+computeEntry :: Ord ident => FunctionDef ident node -> FlowOp ident node () st
 computeEntry fn = do
   let sym = getFnIdent fn
   n <- incCounter
   addEntry sym n
 
-computeGraph :: Ord ident => FunctionDef ident node -> FlowOp ident node ()
+computeGraph :: Ord ident => FunctionDef ident node -> FlowOp ident node () st
 computeGraph fn@FunDef{..} = do
   let sym = getFnIdent fn
   entry <- getEntryId sym
@@ -260,7 +261,7 @@ computeGraph fn@FunDef{..} = do
   addThis sym 
   return ()
 
-computeGraphBody :: Ord ident => Statement ident node -> FlowOp ident node Bool
+computeGraphBody :: Ord ident => Statement ident node -> FlowOp ident node Bool st
 computeGraphBody stmt =
   case stmt of
     Break n -> do
@@ -421,7 +422,7 @@ computeGraphBody stmt =
       return False
     While cond body isDoWhile n -> computeWhile cond body isDoWhile
 
-computeGraphCompound :: Ord ident => [CompoundBlockItem ident a] -> FlowOp ident a Bool
+computeGraphCompound :: Ord ident => [CompoundBlockItem ident a] -> FlowOp ident a Bool st
 computeGraphCompound list =
   case list of
     [] -> return False
@@ -510,7 +511,7 @@ computeFor begin cond end body = do
   popPrev
   return False
 
-computeWhile :: Ord ident => Expression ident a -> Statement ident a -> Bool -> FlowOp ident a Bool
+computeWhile :: Ord ident => Expression ident a -> Statement ident a -> Bool -> FlowOp ident a Bool st
 computeWhile cond body doWhile = 
   if doWhile
   then error "no support for do while loops"
@@ -541,7 +542,7 @@ computeWhile cond body doWhile =
     replaceExit prev_exit
     return False
 
-computeGraphDecls :: Ord ident => [Declaration ident a] -> FlowOp ident a Bool
+computeGraphDecls :: Ord ident => [Declaration ident a] -> FlowOp ident a Bool st
 computeGraphDecls decls = 
   case decls of
     [] -> return False

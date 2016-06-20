@@ -18,36 +18,36 @@ type Stack = IntMap MCell
 type Types = [Type SymId ()]
 type Globals = Map SymId MCell 
 
-data Env = 
+data Env st = 
   Env {
     heap :: Heap
-  , proc :: Functions
+  , proc :: Functions st
   , tys  :: Types 
   , gls  :: Globals
   }
 
 -- Map Pid Functions
-type Functions = IntMap Function 
+type Functions st = IntMap (Function st) 
 
 -- Not sure what a process needs yet.
 -- | Calling context [(Stack, Function)]
-data Function = 
+data Function st = 
   Func {
     stack :: Stack
-  , fcode :: Graph SymId () 
+  , fcode :: Graph SymId () st
   , pos  :: Int
   }  
 
-type InterOp a = State Env a
+type InterOp st a = State (Env st) a
 
 -- API 
-addType :: Type SymId () -> InterOp ()
+addType :: Type SymId () -> InterOp st ()
 addType ty = do
   s@Env{..} <- get
   let tys' = ty:tys
   put s {tys = tys'}
 
-addGlobal :: SymId -> MCell -> InterOp ()
+addGlobal :: SymId -> MCell -> InterOp st ()
 addGlobal id cell = do
   s@Env{..} <- get
   let gls' = M.insert id cell gls 
@@ -57,17 +57,17 @@ addGlobal id cell = do
 -- is to load the program and put
 -- it in a state where one can
 -- interpret functions with arguments
-interpreter :: FrontEnd () -> ()
+interpreter :: FrontEnd () st -> ()
 interpreter = undefined
 
 -- Given the FrontEnd
 -- computes an environment/configuration
 -- with the initial declarations
-i_env :: FrontEnd () -> InterOp ()
+i_env :: FrontEnd () st -> InterOp st ()
 i_env f@FrontEnd{..} =
   mapM_ interGDecl $ decls ast   
 
-interGDecl :: Declaration SymId () -> InterOp ()
+interGDecl :: Declaration SymId () -> InterOp st ()
 interGDecl decl =
   case decl of
     Decl ty decl@DeclElem{..} ->
@@ -89,7 +89,7 @@ interGDecl decl =
 
 -- Interpret an expression
 -- Transformers for the concrete semantics 
-interExpr :: Expression SymId () -> InterOp Value
+interExpr :: Expression SymId () -> InterOp st Value
 interExpr expr = case expr of
   AlignofExpr expr -> error "interExpr: align of expr" 
   AlignofType decl -> error "interExpr: align of type"

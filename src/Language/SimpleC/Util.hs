@@ -10,11 +10,11 @@ import Language.SimpleC.Flow
 --  AST of the file
 --  Control Flow Graphs per Function
 --  Symbol Table
-data FrontEnd node 
+data FrontEnd node st 
  = FrontEnd 
  { 
    ast  :: Program SymId node
- , cfgs :: Graphs SymId  node
+ , cfgs :: Graphs SymId  node st
  , symt :: Map SymId Symbol
  } deriving Show
 

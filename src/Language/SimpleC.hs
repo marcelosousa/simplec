@@ -28,7 +28,7 @@ parseFile cOpt f  = do
         Right ast -> return ast
     Right ast      -> return ast
 
-extract :: String -> FilePath -> IO (FrontEnd ())
+extract :: String -> FilePath -> IO (FrontEnd () st)
 extract cOpt f = do 
   ctu <- parseFile cOpt f
   let s_ctu = fmap (\_ -> ()) ctu -- remove the nodes

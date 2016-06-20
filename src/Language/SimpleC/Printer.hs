@@ -27,7 +27,7 @@ ppFun fun@FunDef{..} =
       pp_body = show body
   in pp_retty ++ " " ++ pp_sym ++ pp_params ++ "{\n" ++ pp_body ++ "\n}\n"
 
-pp_dot_graphs :: (Show ident, Show a) => Graphs ident a -> String
+pp_dot_graphs :: (Show ident, Show a) => Graphs ident a st -> String
 pp_dot_graphs graphs =
   let n_e_s = "digraph program {" 
       n_x_s = "}"

@@ -36,6 +36,7 @@ extract cOpt f = do
       ast = code proc_st          -- get the new AST
       sym_table = syms proc_st    -- get the symbol table
       cfgs = computeGraphs ast    -- compute the cfgs
+  print $ s_ctu 
   return $ FrontEnd ast cfgs sym_table 
 
 test_flow f = do 

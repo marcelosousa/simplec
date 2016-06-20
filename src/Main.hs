@@ -7,6 +7,7 @@ import Language.C.Data.Ident
 import Language.SimpleC
 import Language.SimpleC.Converter
 import Language.SimpleC.Flow
+import Language.SimpleC.Interpreter
 
 import System.FilePath
 import System.Directory

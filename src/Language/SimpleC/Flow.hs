@@ -51,8 +51,8 @@ type Graphs ident n
 data Graph ident n
  = Graph
    {
-     entry_node :: NodeId              -- entry point
-   , graph :: Map NodeId [(EdgeId,NodeId)]      -- successors
+     entry_node :: NodeId                        -- entry point
+   , graph :: Map NodeId [(EdgeId,NodeId)]       -- successors
    , edge_table :: Map EdgeId (EdgeInfo ident n) -- information
    }
   deriving Show

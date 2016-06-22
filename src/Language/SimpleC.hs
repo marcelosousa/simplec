@@ -19,7 +19,10 @@ dParseFile = parseFile "-I/home/msousa/benchmarks/musketeer/debian/packages/core
 sParseFile = parseFile ""
 parseFile :: String -> FilePath -> IO CTranslUnit
 parseFile cOpt f  = do
-  parse_result <- parseCFile (newGCC "gcc") Nothing [cOpt] f
+  parse_result <- 
+    if cOpt = ""
+    then parseCFile (newGCC "gcc") Nothing [] f
+    else parseCFile (newGCC "gcc") Nothing [cOpt] f
   case parse_result of
     Left parse_err -> do 
       parse_result <- parseCFilePre f

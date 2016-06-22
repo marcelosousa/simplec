@@ -20,7 +20,7 @@ sParseFile = parseFile ""
 parseFile :: String -> FilePath -> IO CTranslUnit
 parseFile cOpt f  = do
   parse_result <- 
-    if cOpt = ""
+    if cOpt == ""
     then parseCFile (newGCC "gcc") Nothing [] f
     else parseCFile (newGCC "gcc") Nothing [cOpt] f
   case parse_result of

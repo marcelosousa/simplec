@@ -16,3 +16,4 @@ Library
       Language.SimpleC.Printer
       Language.SimpleC.Converter
       Language.SimpleC.Flow
+      Language.SimpleC.Util

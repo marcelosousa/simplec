@@ -1,4 +1,4 @@
-module Language.SimpleC where
+module Language.SimpleC (extract, FrontEnd(..)) where
 
 import Data.Map 
  

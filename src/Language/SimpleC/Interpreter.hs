@@ -12,8 +12,8 @@ import Language.SimpleC.AST
 import Language.SimpleC.Flow
 import Language.SimpleC.Util
 
-type MCell = MemCell SymId ()
-type Heap = IntMap MCell 
+type MCell = MemCell SymId () Value
+type Heap = IntMap MCell  
 type Stack = IntMap MCell 
 type Types = [Type SymId ()]
 type Globals = Map SymId MCell 

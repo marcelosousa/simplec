@@ -14,14 +14,14 @@ data FrontEnd node st
  = FrontEnd 
  { 
    ast  :: Program SymId node
- , cfgs :: Graphs SymId  node st
+ , cfgs :: Graphs SymId node st
  , symt :: Map SymId Symbol
  } deriving Show
 
-data MemCell ident node
+data MemCell ident node val
  = MCell { 
    ty  :: Ty ident node
- , val :: Value
+ , val :: val
  } deriving Show
 
 data Value

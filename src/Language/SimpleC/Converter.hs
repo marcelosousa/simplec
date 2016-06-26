@@ -63,6 +63,12 @@ init_st = ProcState M.empty M.empty 0 init_code Global
 data Symbol = TypeSym | VarSym Ident
   deriving Show
 
+get_name :: Symbol -> String
+get_name sym =
+  case sym of
+    TypeSym -> error "cant get name of a TypeSym"
+    VarSym i -> get_str_ident i
+
 get_str_ident :: Ident -> String
 get_str_ident (Ident str _ _) = str
  

@@ -62,7 +62,10 @@ init_st = ProcState M.empty M.empty 0 init_code Global
 
 data Symbol = TypeSym | VarSym Ident
   deriving Show
-  
+
+get_str_ident :: Ident -> String
+get_str_ident (Ident str _ _) = str
+ 
 type ProcessorOp node val = State (ProcessorState node) val
 
 -- | API

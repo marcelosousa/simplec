@@ -39,7 +39,7 @@ data Value
 -- Full Type
 data Ty ident node 
  = Ty [DerivedDeclarator ident node] (Type ident node)
-  deriving Show
+  deriving (Show,Eq)
 
 init_value :: Ty ident node -> Value
 init_value (Ty d base@Type{..}) =

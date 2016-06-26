@@ -60,11 +60,12 @@ data FunctionDef ident a
   , body   :: Statement ident a     -- body?
   , loc    :: a
   }
-  deriving Show
+  deriving (Eq,Show)
 
 data Declaration ident a 
   = Decl (Type ident a) (DeclElem ident a)
   | TypeDecl (Type ident a)
+  deriving (Eq)
 
 -- | Just a type synonym
 type CDeclElem a = (Maybe (CDeclarator a), Maybe (CInitializer a), Maybe (CExpression a))
@@ -74,6 +75,7 @@ data DeclElem ident a
   , initializer :: Maybe (Initializer ident a)
   , size_expr :: Maybe (Expression ident a)
   }
+  deriving (Eq)
 
 -- | C Declarator
 data Declarator ident a
@@ -84,21 +86,23 @@ data Declarator ident a
   , declr_attr  :: [Attribute ident a]
   , declr_loc   :: a
   }
+  deriving (Eq)
 
 data DerivedDeclarator ident a
   = PtrDeclr [TypeQualifier ident a]
   | ArrDeclr [TypeQualifier ident a] (ArraySize ident a)
   | FunDeclr (Either [ident] ([Declaration ident a], Bool)) [Attribute ident a]
+  deriving (Eq)
 
 data ArraySize ident a
   = NoArrSize Bool
   | ArrSize Bool (Expression ident a)
-  deriving Show
+  deriving (Show,Eq)
  
 data Initializer ident a
   = InitExpr (Expression ident a) 
   | InitList (InitializerList ident a)
-  deriving Show
+  deriving (Show,Eq)
 
 type CInitializerListEl a = ([CPartDesignator a],CInitializer a)
 type InitializerListEl ident a = ([PartDesignator ident a],Initializer ident a)
@@ -109,7 +113,7 @@ data PartDesignator ident a
   = ArrDesig (Expression ident a)
   | MemberDesig ident
   | RangeDesig (Expression ident a) (Expression ident a)
-  deriving Show
+  deriving (Eq,Show)
 
 -- | Equivalent to a DeclarationSpecifier
 data Type ident a
@@ -118,7 +122,8 @@ data Type ident a
   , tyquals  :: [TypeQualifier ident a]
   , tyspecs  :: [TypeSpecifier ident a]
   } 
-
+  deriving (Eq)
+ 
 -- ^ storage-class specifier or typedef
 data StorageSpecifier 
   = Auto     -- ^ auto (default)
@@ -127,6 +132,7 @@ data StorageSpecifier
   | Extern   -- ^ extern
   | Typedef  -- ^ typedef
   | Thread   -- ^ GNUC thread local storage
+  deriving (Eq)
 
 -- ^ type name
 data TypeSpecifier ident a
@@ -147,17 +153,18 @@ data TypeSpecifier ident a
   | TypeDef     ident        a           -- ^ Typedef name
   | TypeOfExpr  (Expression ident a)  a  -- ^ @typeof(expr)@
   | TypeOfType  (Declaration ident a) a  -- ^ @typeof(type)@
+  deriving (Eq)
   
 data StructureUnion ident a 
   = Struct StructTag (Maybe ident) (Maybe [Declaration ident a]) [Attribute ident a] a
-  deriving Show
+  deriving (Show,Eq)
 
 data Enumeration ident a
   = Enum (Maybe ident)
          (Maybe [(ident, Maybe (Expression ident a))])
          [Attribute ident a]
          a
-  deriving Show
+  deriving (Show,Eq)
  
 -- ^ type qualifier
 data TypeQualifier ident a 
@@ -166,11 +173,12 @@ data TypeQualifier ident a
   | RestrQual 
   | InlineQual
   | AttrQual  (Attribute ident a)
+  deriving (Eq)
 
 -- ^ TODO: Comment
 data Attribute ident a 
   =  Attr ident [Expression ident a] 
- deriving Show 
+ deriving (Show,Eq) 
 
 -- ^ Expression
 data Expression ident a
@@ -195,8 +203,9 @@ data Expression ident a
   | Unary UnaryOp (Expression ident a)
   | Var ident
 -- Unsupported expressions:
-  | ComplexReal (CExpression a)
-  | ComplexImag (CExpression a)
+  | ComplexReal (Expression ident a)
+  | ComplexImag (Expression ident a)
+  deriving (Eq)
 
 data Constant
   = IntConst CInteger 
@@ -204,6 +213,7 @@ data Constant
   | FloatConst CFloat 
   | StrConst CString 
   | BoolConst Bool
+  deriving (Eq)
 
 data Statement ident a
   = Break a
@@ -227,18 +237,27 @@ data Statement ident a
   | While (Expression ident a) (Statement ident a) Bool a
   -- | Not supported
   | Asm (CAssemblyStatement a) a
+  deriving (Eq)
 
 data CompoundBlockItem ident a
   = BlockStmt (Statement ident a)
   | BlockDecl [Declaration ident a]
   | NestedFunDef (FunctionDef ident a)
-
+  deriving (Eq)
 
 data BuiltinThing ident a
   = BuiltinVaArg (Expression ident a) (Declaration ident a) a
   | BuiltinOffsetOf (Declaration ident a) [PartDesignator ident a] a
   | BuiltinTypesCompatible (Declaration ident a) (Declaration ident a) a
-  deriving Show
+  deriving (Eq,Show)
+
+-- Eq instances
+instance Eq a => Eq (CStringLiteral a) where
+  (==) (CStrLit s1 n1) (CStrLit s2 n2) =
+    s1 == s2 && n1 == n2
+
+instance Eq (CAssemblyStatement a) where
+  (==) a b = error "equality on cassemblystatement not supported" 
 
 -- Show instances
 pp_with_sep :: Show a => String -> [a] -> String

@@ -34,7 +34,7 @@ data Value
  | VChar Char
  | VString String
  | VPtr Int -- The int represents a memory address
- deriving Show
+ deriving (Show,Eq,Ord)
 
 -- Full Type
 data Ty ident node 

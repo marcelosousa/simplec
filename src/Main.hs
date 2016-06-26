@@ -18,7 +18,7 @@ main = putStrLn "simple-c: a library for simple c"
 printMyAST :: CTranslUnit -> IO ()
 printMyAST ctu = print ctu -- (print . pretty) ctu
 
-myMain fn f = parseFile fn >>= f
+myMain fn f = parseCFile fn >>= f
 
 -- svcomptest :: FilePath -> IO ()
 -- svcomptest = do

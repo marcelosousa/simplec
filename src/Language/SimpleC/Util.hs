@@ -22,7 +22,7 @@ data MemCell ident node val
  = MCell { 
    ty  :: Ty ident node
  , val :: val
- } deriving Show
+ } deriving (Eq,Show)
 
 data Value
  = VInt Int

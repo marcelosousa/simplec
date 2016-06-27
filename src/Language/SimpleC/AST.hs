@@ -16,6 +16,9 @@ import Language.C.Syntax.Constants
 newtype SymId = SymId Int
   deriving (Eq, Ord)
 
+symId :: SymId -> Int
+symId (SymId i) = i 
+
 instance Show SymId where
   show (SymId i) = "&#37;"++show i
    

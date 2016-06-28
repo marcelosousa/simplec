@@ -48,8 +48,8 @@ init_value (Ty d base@Type{..}) =
   case d of
     [] -> init_val tyspecs
     (cty:_) -> case cty of
-      PtrDeclr [] -> VPtr 0
-      _ -> VPtr 0
+      PtrDeclr [] -> VMemAddr 0
+      _ -> VMemAddr 0
 
 init_val :: [TypeSpecifier ident node] -> Value
 init_val [] = error "init_val: no type"

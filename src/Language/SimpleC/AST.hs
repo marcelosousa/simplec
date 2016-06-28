@@ -184,6 +184,7 @@ data Attribute ident a
  deriving (Show,Eq) 
 
 -- ^ Expression
+type SExpression = Expression SymId ()
 data Expression ident a
   = AlignofExpr (Expression ident a)
   | AlignofType (Declaration ident a)

@@ -33,7 +33,7 @@ data Value
  | VBool Bool
  | VChar Char
  | VString String
- | VPtr Int -- The int represents a memory address
+ | VMemAddr Int -- The int represents a memory address
  | VArr [Value] 
  | VTop  
  deriving (Show,Eq,Ord)

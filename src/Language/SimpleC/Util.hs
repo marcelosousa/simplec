@@ -5,6 +5,7 @@ import Data.Map (Map)
 import Language.SimpleC.AST 
 import Language.SimpleC.Converter
 import Language.SimpleC.Flow
+import Language.C.Syntax.Constants
 
 -- The result of the front-end
 --  AST of the file
@@ -66,3 +67,14 @@ init_val (t:ts) = case t of
   TypeDef ident node -> error "init_val: type def"
   TypeOfExpr exp node -> error "init_val: type of expr"
   TypeOfType dec node -> error "init_val: type of type"
+
+toValue :: Constant -> Value
+toValue const = case const of
+  -- Assume that we always have CIntegers in Decimal represetation
+  IntConst (CInteger i _ _) -> VInt $ fromEnum i 
+  CharConst cchar -> case cchar of
+    CChar c _ -> VChar c
+    _ -> error "toValue: CChars not supported"
+  FloatConst cfloat -> error "toValue: Float not supported" 
+  StrConst (CString str _) -> VString str 
+  BoolConst b -> VBool b

@@ -23,7 +23,7 @@ data MemCell ident node val
  = MCell { 
    ty  :: Ty ident node
  , val :: val
- } deriving (Eq,Show)
+ } deriving (Eq,Ord,Show)
 
 data Value
  = VInt Int
@@ -40,7 +40,7 @@ data Value
 type STy = Ty SymId ()
 data Ty ident node 
  = Ty [DerivedDeclarator ident node] (Type ident node)
-  deriving (Show,Eq)
+  deriving (Show,Eq,Ord)
 
 init_value :: Ty ident node -> Value
 init_value (Ty d base@Type{..}) =

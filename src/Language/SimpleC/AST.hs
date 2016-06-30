@@ -65,6 +65,8 @@ data FunctionDef ident a
   }
   deriving (Eq,Show)
 
+
+type SDeclaration = Declaration SymId ()
 data Declaration ident a 
   = Decl (Type ident a) (DeclElem ident a)
   | TypeDecl (Type ident a)
@@ -119,6 +121,7 @@ data PartDesignator ident a
   deriving (Eq,Show)
 
 -- | Equivalent to a DeclarationSpecifier
+type SType = Type SymId ()
 data Type ident a
   = Type 
   { storspec :: StorageSpecifier

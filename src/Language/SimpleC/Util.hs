@@ -37,6 +37,7 @@ data Value
  deriving (Show,Eq,Ord)
 
 -- Full Type
+type STy = Ty SymId ()
 data Ty ident node 
  = Ty [DerivedDeclarator ident node] (Type ident node)
   deriving (Show,Eq)

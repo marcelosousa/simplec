@@ -125,8 +125,8 @@ NodeTag	./Language/SimpleC/Flow.hs	33;"	t
 None	./Language/SimpleC/Converter.hs	54;"	d
 PartDesignator	./Language/SimpleC/AST.hs	117;"	t
 ProcState	./Language/SimpleC/Converter.hs	46;"	d
-Process	./Language/SimpleC/Converter.hs	126;"	t
-ProcessorOp	./Language/SimpleC/Converter.hs	75;"	t
+Process	./Language/SimpleC/Converter.hs	132;"	t
+ProcessorOp	./Language/SimpleC/Converter.hs	81;"	t
 ProcessorState	./Language/SimpleC/Converter.hs	45;"	t
 Prog	./Language/SimpleC/AST.hs	46;"	d
 Program	./Language/SimpleC/AST.hs	45;"	t
@@ -190,15 +190,15 @@ VarSym	./Language/SimpleC/Converter.hs	63;"	d
 VoidType	./Language/SimpleC/AST.hs	145;"	d
 VolatQual	./Language/SimpleC/AST.hs	178;"	d
 While	./Language/SimpleC/AST.hs	244;"	d
-addDecl	./Language/SimpleC/Converter.hs	104;"	v
-addDeclaration	./Language/SimpleC/Converter.hs	92;"	v
+addDecl	./Language/SimpleC/Converter.hs	110;"	v
+addDeclaration	./Language/SimpleC/Converter.hs	98;"	v
 addEdge	./Language/SimpleC/Flow.hs	98;"	v
 addEdgeInfo	./Language/SimpleC/Flow.hs	84;"	v
 addEntry	./Language/SimpleC/Flow.hs	138;"	v
-addFunction	./Language/SimpleC/Converter.hs	113;"	v
+addFunction	./Language/SimpleC/Converter.hs	119;"	v
 addGlobal	./Language/SimpleC/Interpreter.hs	51;"	v
 addThis	./Language/SimpleC/Flow.hs	113;"	v
-addType	./Language/SimpleC/Converter.hs	99;"	v
+addType	./Language/SimpleC/Converter.hs	105;"	v
 addType	./Language/SimpleC/Interpreter.hs	45;"	v
 asm_ext	./Language/SimpleC/AST.hs	50;"	v
 ast	./Language/SimpleC/Util.hs	17;"	v
@@ -215,7 +215,7 @@ computeGraphs	./Language/SimpleC/Flow.hs	225;"	v
 computeWhile	./Language/SimpleC/Flow.hs	515;"	v
 counter	./Language/SimpleC/Converter.hs	49;"	v
 current	./Language/SimpleC/Flow.hs	70;"	v
-dParseFile	Language/SimpleC.hs	18;"	v	file:
+dParseFile	./Language/SimpleC.hs	18;"	v	file:
 declarator	./Language/SimpleC/AST.hs	79;"	v
 declr_attr	./Language/SimpleC/AST.hs	91;"	v
 declr_cstr	./Language/SimpleC/AST.hs	90;"	v
@@ -229,7 +229,7 @@ edge_table	./Language/SimpleC/Flow.hs	56;"	v
 entries	./Language/SimpleC/Flow.hs	68;"	v
 entry_node	./Language/SimpleC/Flow.hs	54;"	v
 exit	./Language/SimpleC/Flow.hs	72;"	v
-extract	Language/SimpleC.hs	35;"	v
+extract	./Language/SimpleC.hs	35;"	v
 fcode	./Language/SimpleC/Interpreter.hs	37;"	v
 getCurrent	./Language/SimpleC/Flow.hs	144;"	v
 getEntryId	./Language/SimpleC/Flow.hs	217;"	v
@@ -238,15 +238,16 @@ getFnIdent	./Language/SimpleC/Flow.hs	240;"	v
 getNext	./Language/SimpleC/Flow.hs	210;"	v
 getPCLabel	./Language/SimpleC/Flow.hs	201;"	v
 getPrev	./Language/SimpleC/Flow.hs	179;"	v
-get_name	./Language/SimpleC/Converter.hs	67;"	v
-get_str_ident	./Language/SimpleC/Converter.hs	73;"	v
+get_name	./Language/SimpleC/Converter.hs	73;"	v
+get_str_ident	./Language/SimpleC/Converter.hs	79;"	v
+get_symbol_name	./Language/SimpleC/Converter.hs	67;"	v
 gls	./Language/SimpleC/Interpreter.hs	26;"	v
 godel	./Language/SimpleC/Converter.hs	47;"	v
 graph	./Language/SimpleC/Flow.hs	55;"	v
 graphs	./Language/SimpleC/Flow.hs	66;"	v
 heap	./Language/SimpleC/Interpreter.hs	23;"	v
 i_env	./Language/SimpleC/Interpreter.hs	67;"	v
-incCounter	./Language/SimpleC/Converter.hs	79;"	v
+incCounter	./Language/SimpleC/Converter.hs	85;"	v
 incCounter	./Language/SimpleC/Flow.hs	124;"	v
 incEdCounter	./Language/SimpleC/Flow.hs	131;"	v
 init_code	./Language/SimpleC/Converter.hs	58;"	v
@@ -260,13 +261,15 @@ interExpr	./Language/SimpleC/Interpreter.hs	93;"	v
 interGDecl	./Language/SimpleC/Interpreter.hs	71;"	v
 interpreter	./Language/SimpleC/Interpreter.hs	61;"	v
 loc	./Language/SimpleC/AST.hs	65;"	v
+main	Main.hs	16;"	v
+myMain	Main.hs	21;"	v
 next	./Language/SimpleC/Flow.hs	71;"	v
 node_code	./Language/SimpleC/Flow.hs	40;"	v
 node_table	./Language/SimpleC/Flow.hs	57;"	v
 node_tags	./Language/SimpleC/Flow.hs	39;"	v
-normalizeDecl	./Language/SimpleC/Converter.hs	189;"	v
+normalizeDecl	./Language/SimpleC/Converter.hs	195;"	v
 params	./Language/SimpleC/AST.hs	63;"	v
-parseFile	Language/SimpleC.hs	21;"	v	file:
+parseFile	./Language/SimpleC.hs	21;"	v	file:
 pc_counter	./Language/SimpleC/Flow.hs	73;"	v
 popNext	./Language/SimpleC/Flow.hs	192;"	v
 popPrev	./Language/SimpleC/Flow.hs	170;"	v
@@ -279,20 +282,21 @@ pp_dot_edge	./Language/SimpleC/Printer.hs	43;"	v
 pp_dot_edges	./Language/SimpleC/Printer.hs	40;"	v
 pp_dot_graph	./Language/SimpleC/Printer.hs	37;"	v
 pp_dot_graphs	./Language/SimpleC/Printer.hs	31;"	v
-pp_with_sep	./Language/SimpleC/AST.hs	285;"	v
+pp_with_sep	./Language/SimpleC/AST.hs	284;"	v
 prev	./Language/SimpleC/Flow.hs	69;"	v
+printMyAST	Main.hs	19;"	v
 proc	./Language/SimpleC/Interpreter.hs	24;"	v
-process	./Language/SimpleC/Converter.hs	127;"	v
-processor	./Language/SimpleC/Converter.hs	121;"	v
+process	./Language/SimpleC/Converter.hs	133;"	v
+processor	./Language/SimpleC/Converter.hs	127;"	v
 pushNext	./Language/SimpleC/Flow.hs	186;"	v
 pushPrev	./Language/SimpleC/Flow.hs	164;"	v
 replaceCurrent	./Language/SimpleC/Flow.hs	159;"	v
 replaceExit	./Language/SimpleC/Flow.hs	154;"	v
 replaceGraph	./Language/SimpleC/Flow.hs	119;"	v
 ret_ty	./Language/SimpleC/AST.hs	61;"	v
-sParseFile	Language/SimpleC.hs	19;"	v	file:
+sParseFile	./Language/SimpleC.hs	19;"	v	file:
 scope	./Language/SimpleC/Converter.hs	51;"	v
-setScope	./Language/SimpleC/Converter.hs	86;"	v
+setScope	./Language/SimpleC/Converter.hs	92;"	v
 size_expr	./Language/SimpleC/AST.hs	81;"	v
 stack	./Language/SimpleC/Interpreter.hs	36;"	v
 storspec	./Language/SimpleC/AST.hs	127;"	v
@@ -300,10 +304,10 @@ symId	./Language/SimpleC/AST.hs	21;"	v
 symbol	./Language/SimpleC/AST.hs	62;"	v
 syms	./Language/SimpleC/Converter.hs	48;"	v
 symt	./Language/SimpleC/Util.hs	19;"	v
-test_flow	Language/SimpleC.hs	45;"	v	file:
+test_flow	./Language/SimpleC.hs	45;"	v	file:
 this	./Language/SimpleC/Flow.hs	67;"	v
 toFlow	./Language/SimpleC/Flow.hs	231;"	v
-toType	./Language/SimpleC/Converter.hs	197;"	v
+toType	./Language/SimpleC/Converter.hs	203;"	v
 toValue	./Language/SimpleC/Util.hs	73;"	v
 trace	./Language/SimpleC/Flow.hs	23;"	v
 ty	./Language/SimpleC/Util.hs	24;"	v

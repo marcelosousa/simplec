@@ -63,6 +63,12 @@ init_st = ProcState M.empty M.empty 0 init_code Global
 data Symbol = TypeSym | VarSym Ident
   deriving Show
 
+get_symbol_name :: SC.SymId -> Map SC.SymId Symbol -> String
+get_symbol_name sym syms =
+  case M.lookup sym syms of
+    Nothing -> error "get_symbol_name: not found"
+    Just s  -> get_name s
+
 get_name :: Symbol -> String
 get_name sym =
   case sym of

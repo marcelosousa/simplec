@@ -271,7 +271,6 @@ instance Ord StructTag where
   (<=) CStructTag _ = True
   (<=) CUnionTag CUnionTag = True
   (<=) CUnionTag _ = False 
-   
 
 instance Ord a => Ord (CStringLiteral a) where
   (<=) (CStrLit s1 n1) (CStrLit s2 n2) =

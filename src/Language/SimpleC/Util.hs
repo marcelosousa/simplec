@@ -79,3 +79,9 @@ toValue const = case const of
   FloatConst cfloat -> error "toValue: Float not supported" 
   StrConst (CString str _) -> VString str 
   BoolConst b -> VBool b
+
+get_expr_id :: Expression ident a -> ident
+get_expr_id e = case e of
+  Var i -> i
+  Unary _ expr -> get_expr_id expr
+  _ -> error "get_expr_id: not supported" 

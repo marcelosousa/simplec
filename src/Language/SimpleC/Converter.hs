@@ -77,7 +77,7 @@ get_name sym =
 
 get_str_ident :: Ident -> String
 get_str_ident (Ident str _ _) = str
- 
+
 type ProcessorOp node val = State (ProcessorState node) val
 
 -- | API

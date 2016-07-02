@@ -80,6 +80,42 @@ toValue const = case const of
   StrConst (CString str _) -> VString str 
   BoolConst b -> VBool b
 
+-- Operations over Value
+arith_int_op :: (Int -> Int -> Int) -> Value -> Value -> Value
+arith_int_op op v1 v2 = case (v1,v2) of 
+  (VInt i,VInt j) -> VInt $ i `op` j
+  (VShort i,VShort j) -> VShort $ i `op` j
+  (VLong i,VLong j) -> VLong $ i `op` j
+  _ -> error "arith_op: type mismatch"
+
+arith_double_op op v1 v2 = case (v1,v2) of 
+  (VDouble i,VDouble j) -> VDouble $ i `op` j
+  _ -> error "arith_double_op: type mismatch"
+
+arith_float_op op v1 v2 = case (v1,v2) of 
+  (VFloat i,VFloat j) -> VFloat $ i `op` j
+  _ -> error "arith_float_op: type mismatch"
+
+add_value :: Value -> Value -> Value
+add_value v1 v2 = case v1 of
+  VInt _    -> arith_int_op (+) v1 v2 
+  VShort _  -> arith_int_op (+) v1 v2 
+  VLong _   -> arith_int_op (+) v1 v2 
+  VDouble _ -> arith_double_op (+) v1 v2 
+  VFloat _  -> arith_float_op (+) v1 v2
+  _ -> error "add_value: type mismatch" 
+
+{-
+ = VInt Int
+ | VShort Int
+ | VLong Int
+ | VDouble Double
+ | VFloat Float
+ | VBool Bool
+ | VChar Char
+ | VString String
+-}
+
 get_expr_id :: Expression ident a -> ident
 get_expr_id e = case e of
   Var i -> i

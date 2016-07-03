@@ -30,19 +30,19 @@ data Code ident n
  | D (Declaration ident n)
   deriving Show
  
-data NodeTag = LoopHead | IfJoin | Entry | Exit
+data EdgeTag = LoopHead | IfJoin | Entry | Exit | Cond
   deriving (Show, Eq)
 
 data EdgeInfo ident n
  = EdgeInfo 
    {
-     node_tags :: [NodeTag]
-   , node_code :: Code ident n
+     edge_tags :: [EdgeTag]
+   , edge_code :: Code ident n
    }
   deriving Show
 
 instance Eq (EdgeInfo ident n) where
-  (==) n1 n2 = node_tags n1 == node_tags n2
+  (==) n1 n2 = edge_tags n1 == edge_tags n2
 
 type EdgeId = Int
 type Graphs ident n st
@@ -57,6 +57,16 @@ data Graph ident n st
    , node_table :: Map NodeId [st]               -- ^ states per thread 
    }
   deriving Show
+
+succs :: Graph ident n st -> NodeId -> [(EdgeId,NodeId)]
+succs cfg@Graph{..} node = case M.lookup node graph of
+  Nothing -> [] -- error "succs: no successors for node"
+  Just s  -> s
+
+get_edge_info :: Graph ident n st -> EdgeId -> EdgeInfo ident n
+get_edge_info cfg@Graph{..} edge = case M.lookup edge edge_table of
+  Nothing -> error "get_edge_info: no info for edge id"
+  Just s  -> s
 
 init_graph :: NodeId -> Graph ident a st
 init_graph e = Graph e M.empty M.empty M.empty

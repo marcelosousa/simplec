@@ -62,6 +62,7 @@ E	./Language/SimpleC/Flow.hs	29;"	d
 EdgeId	./Language/SimpleC/Flow.hs	47;"	t
 EdgeInfo	./Language/SimpleC/Flow.hs	36;"	t
 EdgeInfo	./Language/SimpleC/Flow.hs	37;"	d
+EdgeTag	./Language/SimpleC/Flow.hs	33;"	t
 Entry	./Language/SimpleC/Flow.hs	33;"	d
 Enum	./Language/SimpleC/AST.hs	169;"	d
 EnumType	./Language/SimpleC/AST.hs	158;"	d
@@ -121,7 +122,6 @@ MemberDesig	./Language/SimpleC/AST.hs	119;"	d
 NestedFunDef	./Language/SimpleC/AST.hs	252;"	d
 NoArrSize	./Language/SimpleC/AST.hs	103;"	d
 NodeId	./Language/SimpleC/Flow.hs	26;"	t
-NodeTag	./Language/SimpleC/Flow.hs	33;"	t
 None	./Language/SimpleC/Converter.hs	54;"	d
 PartDesignator	./Language/SimpleC/AST.hs	117;"	t
 ProcState	./Language/SimpleC/Converter.hs	46;"	d
@@ -200,6 +200,10 @@ addGlobal	./Language/SimpleC/Interpreter.hs	51;"	v
 addThis	./Language/SimpleC/Flow.hs	113;"	v
 addType	./Language/SimpleC/Converter.hs	105;"	v
 addType	./Language/SimpleC/Interpreter.hs	45;"	v
+add_value	./Language/SimpleC/Util.hs	100;"	v
+arith_double_op	./Language/SimpleC/Util.hs	91;"	v
+arith_float_op	./Language/SimpleC/Util.hs	95;"	v
+arith_int_op	./Language/SimpleC/Util.hs	85;"	v
 asm_ext	./Language/SimpleC/AST.hs	50;"	v
 ast	./Language/SimpleC/Util.hs	17;"	v
 body	./Language/SimpleC/AST.hs	64;"	v
@@ -224,8 +228,10 @@ declr_loc	./Language/SimpleC/AST.hs	92;"	v
 declr_type	./Language/SimpleC/AST.hs	89;"	v
 decls	./Language/SimpleC/AST.hs	48;"	v
 defs	./Language/SimpleC/AST.hs	49;"	v
+edge_code	./Language/SimpleC/Flow.hs	40;"	v
 edge_counter	./Language/SimpleC/Flow.hs	74;"	v
 edge_table	./Language/SimpleC/Flow.hs	56;"	v
+edge_tags	./Language/SimpleC/Flow.hs	39;"	v
 entries	./Language/SimpleC/Flow.hs	68;"	v
 entry_node	./Language/SimpleC/Flow.hs	54;"	v
 exit	./Language/SimpleC/Flow.hs	72;"	v
@@ -238,6 +244,7 @@ getFnIdent	./Language/SimpleC/Flow.hs	240;"	v
 getNext	./Language/SimpleC/Flow.hs	210;"	v
 getPCLabel	./Language/SimpleC/Flow.hs	201;"	v
 getPrev	./Language/SimpleC/Flow.hs	179;"	v
+get_expr_id	./Language/SimpleC/Util.hs	120;"	v
 get_name	./Language/SimpleC/Converter.hs	73;"	v
 get_str_ident	./Language/SimpleC/Converter.hs	79;"	v
 get_symbol_name	./Language/SimpleC/Converter.hs	67;"	v
@@ -264,9 +271,7 @@ loc	./Language/SimpleC/AST.hs	65;"	v
 main	Main.hs	16;"	v
 myMain	Main.hs	21;"	v
 next	./Language/SimpleC/Flow.hs	71;"	v
-node_code	./Language/SimpleC/Flow.hs	40;"	v
 node_table	./Language/SimpleC/Flow.hs	57;"	v
-node_tags	./Language/SimpleC/Flow.hs	39;"	v
 normalizeDecl	./Language/SimpleC/Converter.hs	195;"	v
 params	./Language/SimpleC/AST.hs	63;"	v
 parseFile	./Language/SimpleC.hs	21;"	v	file:

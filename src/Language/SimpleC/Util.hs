@@ -36,6 +36,8 @@ data Value
  | VString String
  deriving (Show,Eq,Ord)
 
+type SymbolTable = Map SymId Symbol
+
 -- Full Type
 type STy = Ty SymId ()
 data Ty ident node 

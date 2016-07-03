@@ -30,7 +30,7 @@ data Code ident n
  | D (Declaration ident n)
   deriving Show
  
-data EdgeTag = LoopHead | IfJoin | Entry | Exit | Cond
+data EdgeTag = LoopHead | IfJoin | Entry | Exit | CondTag
   deriving (Show, Eq)
 
 data EdgeInfo ident n
@@ -67,6 +67,12 @@ get_edge_info :: Graph ident n st -> EdgeId -> EdgeInfo ident n
 get_edge_info cfg@Graph{..} edge = case M.lookup edge edge_table of
   Nothing -> error "get_edge_info: no info for edge id"
   Just s  -> s
+
+get_node_info :: Graph ident n st -> NodeId -> [st]
+get_node_info cfg@Graph{..} node = case M.lookup node node_table of
+  Nothing -> error "get_node_info: no info for node id"
+  Just s  -> s
+  
 
 init_graph :: NodeId -> Graph ident a st
 init_graph e = Graph e M.empty M.empty M.empty

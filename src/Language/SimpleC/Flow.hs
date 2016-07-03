@@ -72,7 +72,12 @@ get_node_info :: Graph ident n st -> NodeId -> [st]
 get_node_info cfg@Graph{..} node = case M.lookup node node_table of
   Nothing -> error "get_node_info: no info for node id"
   Just s  -> s
-  
+ 
+is_cond :: [EdgeTag] -> Bool
+is_cond = any (== CondTag)  
+
+is_join :: [EdgeTag] -> Bool
+is_join = any (== IfJoin)  
 
 init_graph :: NodeId -> Graph ident a st
 init_graph e = Graph e M.empty M.empty M.empty

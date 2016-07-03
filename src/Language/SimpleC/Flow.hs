@@ -365,8 +365,8 @@ computeGraphBody stmt =
       joinEEdge <- incEdCounter
       thenPc <- incCounter
       elsePc <- incCounter
-      let eThen = EdgeInfo [] (E cond)
-          eElse = EdgeInfo [] (E (Unary CNegOp cond))
+      let eThen = EdgeInfo [CondTag] (E cond)
+          eElse = EdgeInfo [CondTag] (E (Unary CNegOp cond))
           eJoin = EdgeInfo [IfJoin] (E Skip)
       -- Add the edges from the branches
       addEdgeInfo thenEdge eThen

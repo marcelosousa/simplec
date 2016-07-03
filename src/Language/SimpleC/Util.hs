@@ -107,16 +107,79 @@ add_value v1 v2 = case v1 of
   VFloat _  -> arith_float_op (+) v1 v2
   _ -> error "add_value: type mismatch" 
 
-{-
- = VInt Int
- | VShort Int
- | VLong Int
- | VDouble Double
- | VFloat Float
- | VBool Bool
- | VChar Char
- | VString String
--}
+sub_value :: Value -> Value -> Value
+sub_value v1 v2 = case v1 of
+  VInt _    -> arith_int_op (-) v1 v2 
+  VShort _  -> arith_int_op (-) v1 v2 
+  VLong _   -> arith_int_op (-) v1 v2 
+  VDouble _ -> arith_double_op (-) v1 v2 
+  VFloat _  -> arith_float_op (-) v1 v2
+  _ -> error "sub_value: type mismatch" 
+
+minus_value :: Value -> Value
+minus_value v1 = case v1 of
+  VInt v    -> VInt (-v)    
+  VShort v  -> VShort (-v)  
+  VLong v   -> VLong (-v)   
+  VDouble v -> VDouble (-v) 
+  VFloat v  -> VFloat (-v)  
+  _ -> error "minus_value: type mismatch" 
+  
+mult_value :: Value -> Value -> Value
+mult_value v1 v2 = case v1 of
+  VInt _    -> arith_int_op (*) v1 v2 
+  VShort _  -> arith_int_op (*) v1 v2 
+  VLong _   -> arith_int_op (*) v1 v2 
+  VDouble _ -> arith_double_op (*) v1 v2 
+  VFloat _  -> arith_float_op (*) v1 v2
+  _ -> error "mult_value: type mismatch" 
+
+div_value :: Value -> Value -> Value
+div_value v1 v2 = case v1 of
+  VInt _    -> arith_int_op div v1 v2 
+  VShort _  -> arith_int_op div v1 v2 
+  VLong _   -> arith_int_op div v1 v2 
+  _ -> error "div_value: type mismatch" 
+
+rmd_value :: Value -> Value -> Value
+rmd_value v1 v2 = case v1 of
+  VInt _    -> arith_int_op mod v1 v2 
+  VShort _  -> arith_int_op mod v1 v2 
+  VLong _   -> arith_int_op mod v1 v2 
+  _ -> error "rmd_value: type mismatch" 
+
+-- Boolean Operations over Value
+bool_int_op :: (Int -> Int -> Bool) -> Value -> Value -> Value
+bool_int_op op v1 v2 = case (v1,v2) of 
+  (VInt i,VInt j) -> VBool $ i `op` j
+  (VShort i,VShort j) -> VBool $ i `op` j
+  (VLong i,VLong j) -> VBool $ i `op` j
+  _ -> error "bool_op: type mismatch"
+
+bool_double_op op v1 v2 = case (v1,v2) of 
+  (VDouble i,VDouble j) -> VBool $ i `op` j
+  _ -> error "bool_double_op: type mismatch"
+
+bool_float_op op v1 v2 = case (v1,v2) of 
+  (VFloat i,VFloat j) -> VBool $ i `op` j
+  _ -> error "bool_float_op: type mismatch"
+
+-- Boolean operations
+neg_value :: Value -> Value
+neg_value v1 = case v1 of
+  VInt 0 -> VBool True 
+  VInt _ -> VBool False 
+  VBool b -> VBool $ not b
+  _ -> error "neg_value: type mismatch" 
+
+le_value :: Value -> Value -> Value
+le_value v1 v2 = case v1 of
+  VInt   _  -> bool_int_op (<) v1 v2
+  VShort _  -> bool_int_op (<) v1 v2
+  VLong _   -> bool_int_op (<) v1 v2 
+  VDouble _ -> bool_double_op (<) v1 v2 
+  VFloat _  -> bool_float_op (<) v1 v2
+  _ -> error "le_value: type mismatch" 
 
 get_expr_id :: Expression ident a -> ident
 get_expr_id e = case e of

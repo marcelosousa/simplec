@@ -181,6 +181,28 @@ le_value v1 v2 = case v1 of
   VFloat _  -> bool_float_op (<) v1 v2
   _ -> error "le_value: type mismatch" 
 
+ge_value :: Value -> Value -> Value
+ge_value v1 v2 = case v1 of
+  VInt   _  -> bool_int_op (>) v1 v2
+  VShort _  -> bool_int_op (>) v1 v2
+  VLong _   -> bool_int_op (>) v1 v2 
+  VDouble _ -> bool_double_op (>) v1 v2 
+  VFloat _  -> bool_float_op (>) v1 v2
+  _ -> error "le_value: type mismatch" 
+
+eq_value :: Value -> Value -> Value
+eq_value v1 v2 = VBool $ v1 == v2
+
+land_value :: Value -> Value -> Value
+land_value v1 v2 = case (v1,v2) of
+  (VBool b1,VBool b2) -> VBool $ b1 && b2
+  _ -> error "land_value: type mismatch" 
+
+lor_value :: Value -> Value -> Value
+lor_value v1 v2 = case (v1,v2) of
+  (VBool b1,VBool b2) -> VBool $ b1 || b2
+  _ -> error "lor_value: type mismatch"  
+ 
 get_expr_id :: Expression ident a -> ident
 get_expr_id e = case e of
   Var i -> i

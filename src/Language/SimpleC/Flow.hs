@@ -423,8 +423,8 @@ computeGraphBody stmt =
     Return mExpr n -> do
       eId <- incEdCounter
       curr <- getCurrent
-      next <- getNext 
-      let eInfo = case mExpr of
+      let next = (-1) 
+          eInfo = case mExpr of
             Nothing -> EdgeInfo [Exit] (E Skip)
             Just e  -> EdgeInfo [Exit] (E e)
       addEdgeInfo eId eInfo

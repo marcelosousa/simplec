@@ -138,12 +138,16 @@ instance Process Ident a SC.SymId where
     p@ProcState{..} <- get
     case M.lookup (hash,scope) godel of
       Nothing -> do
-        k <- incCounter
-        p@ProcState{..} <- get
-        let syms' = M.insert (SC.SymId k) (VarSym i) syms
-            godel' = M.insert (hash,scope) k godel
-        put p {syms=syms',godel=godel'}
-        return $ SC.SymId k
+        -- maybe it is global
+        case M.lookup (hash,Global) godel of
+          Nothing -> do 
+            k <- incCounter
+            p@ProcState{..} <- get
+            let syms' = M.insert (SC.SymId k) (VarSym i) syms
+                godel' = M.insert (hash,scope) k godel
+            put p {syms=syms',godel=godel'}
+            return $ SC.SymId k
+          Just k  -> return $ SC.SymId k 
       Just k  -> return $ SC.SymId k 
 
 -- | Convert the 'C Translation Unit'

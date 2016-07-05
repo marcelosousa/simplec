@@ -70,11 +70,15 @@ get_edge_info cfg@Graph{..} edge = case M.lookup edge edge_table of
 
 get_node_info :: Graph ident n st -> NodeId -> [st]
 get_node_info cfg@Graph{..} node = case M.lookup node node_table of
-  Nothing -> error "get_node_info: no info for node id"
+  Nothing -> [] 
   Just s  -> s
  
 is_cond :: [EdgeTag] -> Bool
 is_cond = any (== CondTag)  
+
+is_exit :: [EdgeTag] -> Bool
+is_exit = any (== Exit)  
+
 
 is_join :: [EdgeTag] -> Bool
 is_join = any (== IfJoin)  

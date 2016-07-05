@@ -181,14 +181,14 @@ le_value v1 v2 = case v1 of
   VFloat _  -> bool_float_op (<) v1 v2
   _ -> error "le_value: type mismatch" 
 
-ge_value :: Value -> Value -> Value
-ge_value v1 v2 = case v1 of
+gr_value :: Value -> Value -> Value
+gr_value v1 v2 = case v1 of
   VInt   _  -> bool_int_op (>) v1 v2
   VShort _  -> bool_int_op (>) v1 v2
   VLong _   -> bool_int_op (>) v1 v2 
   VDouble _ -> bool_double_op (>) v1 v2 
   VFloat _  -> bool_float_op (>) v1 v2
-  _ -> error "le_value: type mismatch" 
+  _ -> error "gr_value: type mismatch" 
 
 eq_value :: Value -> Value -> Value
 eq_value v1 v2 = VBool $ v1 == v2

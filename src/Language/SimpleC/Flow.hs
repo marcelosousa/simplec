@@ -506,8 +506,8 @@ computeFor begin cond end body = do
       _cond = case cond of
          Nothing -> Const (BoolConst True)
          Just e  -> e
-      eTrue = EdgeInfo [] (E _cond)
-      eFalse = EdgeInfo [] (E (Unary CNegOp _cond))
+      eTrue = EdgeInfo [CondTag] (E _cond)
+      eFalse = EdgeInfo [CondTag] (E (Unary CNegOp _cond))
   addEdgeInfo condEId eInfo
   addEdgeInfo trueEId eTrue
   addEdgeInfo falseEId eFalse
@@ -545,8 +545,8 @@ computeWhile cond body doWhile =
     pushPrev curr
     trueE <- incEdCounter
     falseE <- incEdCounter
-    let eTrue = EdgeInfo [LoopHead] (E cond)
-        eFalse = EdgeInfo [LoopHead] (E (Unary CNegOp cond))
+    let eTrue = EdgeInfo [CondTag] (E cond)
+        eFalse = EdgeInfo [CondTag] (E (Unary CNegOp cond))
     truePc <- incCounter
     falsePc <- incCounter
     addEdgeInfo trueE eTrue
@@ -558,7 +558,7 @@ computeWhile cond body doWhile =
     replaceExit (Just falsePc)
     computeGraphBody body 
     popPrev
-    let eEnd = EdgeInfo [] (E Skip)
+    let eEnd = EdgeInfo [IfJoin] (E Skip)
     endE <- incEdCounter
     addEdgeInfo endE eEnd
     _curr <- getCurrent

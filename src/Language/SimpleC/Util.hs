@@ -6,6 +6,7 @@ import Language.SimpleC.AST
 import Language.SimpleC.Converter
 import Language.SimpleC.Flow
 import Language.C.Syntax.Constants
+import qualified Data.Map as M
 
 -- The result of the front-end
 --  AST of the file
@@ -18,6 +19,23 @@ data FrontEnd node st
  , cfgs :: Graphs SymId node st
  , symt :: Map SymId Symbol
  } deriving Show
+
+sep = "-----------------------------------\n"
+show_symt :: Map SymId Symbol -> String 
+show_symt tab =
+  let header = "Symbol Table\n" ++ sep ++ "SymId  | Symbol\n" ++ sep
+      tab_s =  M.foldWithKey (\k s r -> 
+        show k ++ " | " ++ show s ++ "\n" ++ r) "" tab
+  in header ++ tab_s
+
+show_symt_dot :: Map SymId Symbol -> String 
+show_symt_dot tab =
+  let header = "symt [label=\"{"
+      ((k,s):els) = M.toList tab
+      el_s = "{" ++ show k ++ " | " ++ show s ++ "}" 
+      tab_s =  foldr (\(k,s) r -> 
+        "{" ++ show k ++ " | " ++ show s ++ "} | " ++ r) el_s els 
+  in header ++ tab_s ++ "}\"];\n"
 
 data MemCell ident node val
  = MCell { 

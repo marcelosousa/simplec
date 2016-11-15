@@ -3,8 +3,10 @@
 module Language.SimpleC.Printer where
 
 import qualified Data.Map as M
-
+import Data.Map (Map)
 import Language.SimpleC.AST
+import Language.SimpleC.Converter
+import Language.SimpleC.Util
 import Language.SimpleC.Flow
 
 ppProg :: (Show ident, Show a) => Program ident a -> String
@@ -27,12 +29,13 @@ ppFun fun@FunDef{..} =
       pp_body = show body
   in pp_retty ++ " " ++ pp_sym ++ pp_params ++ "{\n" ++ pp_body ++ "\n}\n"
 
-pp_dot_graphs :: (Show ident, Show a) => Graphs ident a st -> String
-pp_dot_graphs graphs =
+pp_dot_graphs :: (Show ident, Show a) => Graphs ident a st -> Map SymId Symbol -> String
+pp_dot_graphs graphs symt =
   let n_e_s = "digraph program {" 
       n_x_s = "}"
+      tab = "" -- show_symt_dot symt
       prog_s = M.fold pp_dot_graph "" graphs
-  in n_e_s ++ "\n" ++ prog_s ++ n_x_s
+  in n_e_s ++ "\n" ++ tab ++ prog_s ++ n_x_s
   where
 pp_dot_graph gr@Graph{..} rest =
   let g = M.foldWithKey (pp_dot_edges edge_table) "" graph

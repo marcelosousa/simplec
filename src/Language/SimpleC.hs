@@ -49,6 +49,7 @@ test_flow f = do
       ast = code proc_st          -- get the new AST
       cfgs = computeGraphs ast    -- compute the cfgs
       fname = fst $ splitExtension f
+      sym_table = syms proc_st    -- get the symbol table
   print $ s_ctu 
   putStrLn $ ppProg ast 
-  writeFile (fname ++ ".dot") $ pp_dot_graphs cfgs
+  writeFile (fname ++ ".dot") $ pp_dot_graphs cfgs sym_table 

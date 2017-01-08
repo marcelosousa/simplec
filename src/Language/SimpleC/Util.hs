@@ -41,7 +41,7 @@ data MemCell ident node val
  = MCell { 
    ty  :: Ty ident node
  , val :: val
- } deriving (Eq,Ord,Show)
+ } deriving (Eq,Ord)
 
 data Value
  = VInt Int
@@ -99,6 +99,9 @@ toValue const = case const of
   FloatConst cfloat -> error "toValue: Float not supported" 
   StrConst (CString str _) -> VString str 
   BoolConst b -> VBool b
+
+const_one :: Constant
+const_one = IntConst (CInteger 1 DecRepr (Flags 0))
 
 -- Operations over Value
 arith_int_op :: (Int -> Int -> Int) -> Value -> Value -> Value

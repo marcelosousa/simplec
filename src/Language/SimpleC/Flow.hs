@@ -79,7 +79,6 @@ is_cond = any (== CondTag)
 is_exit :: [EdgeTag] -> Bool
 is_exit = any (== Exit)  
 
-
 is_join :: [EdgeTag] -> Bool
 is_join = any (== IfJoin)  
 
@@ -527,13 +526,14 @@ computeFor begin cond end body = do
   endE  <- incEdCounter
   let eTran = EdgeInfo [] (E Skip)
       eEnd = case end of
-        Nothing -> EdgeInfo [] (E Skip)
-        Just e -> EdgeInfo [] (E e)
+        Nothing -> EdgeInfo [LoopHead] (E Skip)
+        Just e -> EdgeInfo [LoopHead] (E e)
   addEdgeInfo endE eEnd
   addEdgeInfo tranE eTran
   addEdge curr tranE endPc
   addEdge endPc endE condPc 
   popPrev
+  replaceCurrent falsePc 
   return False
 
 computeWhile :: Ord ident => Expression ident a -> Statement ident a -> Bool -> FlowOp ident a Bool st
@@ -558,7 +558,7 @@ computeWhile cond body doWhile =
     replaceExit (Just falsePc)
     computeGraphBody body 
     popPrev
-    let eEnd = EdgeInfo [IfJoin] (E Skip)
+    let eEnd = EdgeInfo [LoopHead] (E Skip)
     endE <- incEdCounter
     addEdgeInfo endE eEnd
     _curr <- getCurrent

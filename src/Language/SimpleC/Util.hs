@@ -172,9 +172,9 @@ rmd_value v1 v2 = case v1 of
 -- Boolean Operations over Value
 bool_int_op :: (Int -> Int -> Bool) -> Value -> Value -> Value
 bool_int_op op v1 v2 = case (v1,v2) of 
-  (VInt i,VInt j) -> VBool $ i `op` j
+  (VInt i,VInt j)     -> VBool $ i `op` j
   (VShort i,VShort j) -> VBool $ i `op` j
-  (VLong i,VLong j) -> VBool $ i `op` j
+  (VLong i,VLong j)   -> VBool $ i `op` j
   _ -> error "bool_op: type mismatch"
 
 bool_double_op op v1 v2 = case (v1,v2) of 

@@ -29,27 +29,27 @@ parseFile cOpt f  = do
       case parse_result of
         Left _ -> error (show parse_err)
         Right ast -> return ast
-    Right ast      -> return ast
+    Right ast -> return ast
 
 extract :: String -> FilePath -> IO (FrontEnd () st)
 extract cOpt f = do 
   ctu <- parseFile cOpt f
-  let s_ctu = fmap (\_ -> ()) ctu -- remove the nodes
-      proc_st = processor s_ctu   -- simplify the AST
-      ast = code proc_st          -- get the new AST
-      sym_table = syms proc_st    -- get the symbol table
-      cfgs = computeGraphs ast    -- compute the cfgs
+  let s_ctu     = fmap (\_ -> ()) ctu -- remove the nodes
+      proc_st   = processor s_ctu     -- simplify the AST
+      ast       = code proc_st        -- get the new AST
+      sym_table = syms proc_st        -- get the symbol table
+      cfgs      = computeGraphs ast   -- compute the cfgs
  --  print $ s_ctu 
   return $ FrontEnd ast cfgs sym_table 
 
 test_flow f = do 
   ctu <- sParseFile f
-  let s_ctu = fmap (\_ -> ()) ctu -- remove the nodes
-      proc_st = processor s_ctu   -- simplify the AST
-      ast = code proc_st          -- get the new AST
-      cfgs = computeGraphs ast    -- compute the cfgs
-      fname = fst $ splitExtension f
-      sym_table = syms proc_st    -- get the symbol table
+  let s_ctu     = fmap (\_ -> ()) ctu     -- remove the nodes
+      proc_st   = processor s_ctu         -- simplify the AST
+      ast       = code proc_st            -- get the new AST
+      cfgs      = computeGraphs ast       -- compute the cfgs
+      fname     = fst $ splitExtension f
+      sym_table = syms proc_st            -- get the symbol table
   print $ s_ctu 
   putStrLn $ ppProg ast 
   writeFile (fname ++ ".dot") $ pp_dot_graphs cfgs sym_table 

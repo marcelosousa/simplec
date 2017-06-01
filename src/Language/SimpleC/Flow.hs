@@ -23,6 +23,8 @@ import qualified Debug.Trace as T
 trace a b = b
 -- trace = T.trace
 
+type Parameters ident n = [Declaration ident n]
+
 type NodeId = Int
 
 data Code ident n
@@ -52,7 +54,8 @@ data Graph ident n st
  = Graph
    {
      entry_node :: NodeId                        -- entry point
-   , graph :: Map NodeId [(EdgeId,NodeId)]       -- successors
+   , parameters :: Parameters ident n            -- parameters
+   , graph      :: Map NodeId [(EdgeId,NodeId)]  -- successors
    , edge_table :: Map EdgeId (EdgeInfo ident n) -- information
    , node_table :: Map NodeId [st]               -- ^ states per thread 
    }
@@ -82,19 +85,19 @@ is_exit = any (== Exit)
 is_join :: [EdgeTag] -> Bool
 is_join = any (== IfJoin)  
 
-init_graph :: NodeId -> Graph ident a st
-init_graph e = Graph e M.empty M.empty M.empty
+init_graph :: Parameters ident a -> NodeId -> Graph ident a st
+init_graph params e = Graph e params M.empty M.empty M.empty
 
 data FlowState ident node st
   = FlowState {
-    graphs  :: Graphs ident node st
-  , this    :: Graph ident node st
-  , entries :: Map ident NodeId
-  , prev :: [NodeId] 
-  , current :: NodeId 
-  , next  :: [NodeId] 
-  , exit :: Maybe NodeId 
-  , pc_counter :: NodeId
+    graphs       :: Graphs ident node st
+  , this         :: Graph ident node st
+  , entries      :: Map ident NodeId
+  , prev         :: [NodeId] 
+  , current      :: NodeId 
+  , next         :: [NodeId] 
+  , exit         :: Maybe NodeId 
+  , pc_counter   :: NodeId
   , edge_counter :: EdgeId 
   } deriving Show
 
@@ -278,7 +281,7 @@ computeGraph :: Ord ident => FunctionDef ident node -> FlowOp ident node () st
 computeGraph fn@FunDef{..} = do
   let sym = getFnIdent fn
   entry <- getEntryId sym
-  let this = init_graph entry
+  let this = init_graph params entry
   replaceGraph this
   replaceCurrent entry
   computeGraphBody body

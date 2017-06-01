@@ -59,7 +59,7 @@ type Definitions  ident a = [FunctionDef ident a]
 data FunctionDef ident a
   = FunDef 
   { ret_ty :: Type ident a          -- return type?
-  , symbol :: Declarator ident a    -- identifer?
+  , symbol :: Declarator ident a    -- identifer and type
   , params :: [Declaration ident a] -- parameters?
   , body   :: Statement ident a     -- body?
   , loc    :: a
@@ -76,9 +76,9 @@ data Declaration ident a
 type CDeclElem a = (Maybe (CDeclarator a), Maybe (CInitializer a), Maybe (CExpression a))
 data DeclElem ident a
   = DeclElem 
-  { declarator :: Maybe (Declarator ident a)
+  { declarator  :: Maybe (Declarator ident a)
   , initializer :: Maybe (Initializer ident a)
-  , size_expr :: Maybe (Expression ident a)
+  , size_expr   :: Maybe (Expression ident a)
   }
   deriving (Eq,Ord)
 
@@ -97,7 +97,7 @@ data DerivedDeclarator ident a
   = PtrDeclr [TypeQualifier ident a]
   | ArrDeclr [TypeQualifier ident a] (ArraySize ident a)
   | FunDeclr (Either [ident] ([Declaration ident a], Bool)) [Attribute ident a]
-  deriving (Eq,Ord)
+  deriving (Eq,Ord,Show)
 
 data ArraySize ident a
   = NoArrSize Bool
@@ -295,14 +295,14 @@ instance (Show ident, Show a) => Show (Declarator ident a) where
       Just i  -> show i++" "++ty
 
 -- @TODO: FunDeclr print attributes. 
-instance (Show ident, Show a) => Show (DerivedDeclarator ident a) where
-  show dd = case dd of
-    PtrDeclr tyquals -> "*" ++ foldr shows "" tyquals
-    ArrDeclr tyquals arr -> foldr shows "" tyquals++"["++show arr++"]"
-    FunDeclr eIdsDecl _ ->
-      case eIdsDecl of
-        Left lidents -> "("++pp_with_sep "," lidents++")"
-        Right (ldecl,_) -> "("++pp_with_sep "," ldecl++")"
+-- instance (Show ident, Show a) => Show (DerivedDeclarator ident a) where
+--   show dd = case dd of
+--     PtrDeclr tyquals -> "*" ++ foldr shows "" tyquals
+--     ArrDeclr tyquals arr -> foldr shows "" tyquals++"["++show arr++"]"
+--     FunDeclr eIdsDecl _ ->
+--       case eIdsDecl of
+--         Left lidents -> "("++pp_with_sep "," lidents++")"
+--         Right (ldecl,_) -> "("++pp_with_sep "," ldecl++")"
 
 instance (Show ident, Show a) => Show (Declaration ident a) where
   show decl = case decl of

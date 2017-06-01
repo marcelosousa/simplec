@@ -47,8 +47,8 @@ data ProcessorState node
     godel   :: Map (Int, Scope) Int 
   , syms    :: Map SC.SymId Symbol
   , counter :: Int
-  , code :: SC.Program SC.SymId node
-  , scope :: Scope
+  , code    :: SC.Program SC.SymId node
+  , scope   :: Scope
   } deriving Show
 
 data Scope = Global | Local | None
@@ -123,17 +123,17 @@ addFunction fun = do
   put p {code = code'} 
 
 -- | Main Functions
-processor :: CTranslationUnit a -> ProcessorState a
+processor :: Show a => CTranslationUnit a -> ProcessorState a
 processor cprog = 
   let ((),st) = runState (process cprog) init_st
   in st
 
 -- | Main processing class 
-class Process a n v  where
+class Show a => Process a n v  where
   process :: a -> ProcessorOp n v
 
 -- | One of the most important instances
-instance Process Ident a SC.SymId where
+instance Show a => Process Ident a SC.SymId where
   process i@(Ident str hash nodeinfo) = do
     p@ProcState{..} <- get
     case M.lookup (hash,scope) godel of
@@ -151,11 +151,11 @@ instance Process Ident a SC.SymId where
       Just k  -> return $ SC.SymId k 
 
 -- | Convert the 'C Translation Unit'
-instance Process (CTranslationUnit a) a () where
+instance Show a => Process (CTranslationUnit a) a () where
   process (CTranslUnit cdecls n) =
     mapM_ (process :: CExternalDeclaration a -> ProcessorOp a ()) cdecls
 
-instance Process (CExternalDeclaration a) a () where
+instance Show a => Process (CExternalDeclaration a) a () where
   process cextdecl =
     case cextdecl of
       CDeclExt cdecl -> do
@@ -166,7 +166,7 @@ instance Process (CExternalDeclaration a) a () where
         process cfun
       CAsmExt cstr n -> error "TODO: Support CAsmExt"
 
-instance Process (CDeclaration a) a () where
+instance Show a => Process (CDeclaration a) a () where
   process (CDecl cdeclspec cdeclrs n) = do
     ty <- toType cdeclspec
     if null cdeclrs
@@ -175,7 +175,7 @@ instance Process (CDeclaration a) a () where
       (declrs :: [SC.DeclElem SC.SymId a]) <- process cdeclrs 
       mapM_ (addDecl ty) declrs 
 
-instance Process (CDeclaration a) a (SC.Declaration SC.SymId a) where
+instance Show a => Process (CDeclaration a) a (SC.Declaration SC.SymId a) where
   process de@(CDecl cdeclspec cdeclrs n) = do
     ty <- toType cdeclspec
     if null cdeclrs
@@ -186,7 +186,7 @@ instance Process (CDeclaration a) a (SC.Declaration SC.SymId a) where
         return $ normalizeDecl ty declr
       _ -> error $ "cant process CDeclaration with multiple declarators" 
 
-instance Process (CDeclaration a) a [SC.Declaration SC.SymId a] where
+instance Show a => Process (CDeclaration a) a [SC.Declaration SC.SymId a] where
   process de@(CDecl cdeclspec cdeclrs n) = do
     ty <- toType cdeclspec
     if null cdeclrs
@@ -203,7 +203,7 @@ normalizeDecl ty declr =
     _ -> SC.Decl ty declr
 
 -- | CDeclarationSpecifier specifies a type
-toType :: [CDeclarationSpecifier a] -> ProcessorOp a (SC.Type SC.SymId a)
+toType :: Show a => [CDeclarationSpecifier a] -> ProcessorOp a (SC.Type SC.SymId a)
 toType decl_spec = do
   (st,ty,tyqual) <- foldM _toType ([],[],[]) decl_spec
   if null ty
@@ -227,7 +227,7 @@ toType decl_spec = do
              return (st,ty,_q:tyqual)
 
 -- | Process a Declaration Element
-instance Process (SC.CDeclElem a) a (SC.DeclElem SC.SymId a) where
+instance Show a => Process (SC.CDeclElem a) a (SC.DeclElem SC.SymId a) where
   process (mCDeclr, mCInit, mCSizeExpr) = do
     declr <- process mCDeclr 
     mInit <- process mCInit 
@@ -235,7 +235,7 @@ instance Process (SC.CDeclElem a) a (SC.DeclElem SC.SymId a) where
     return $ SC.DeclElem declr mInit mSizeExpr
 
 -- | Process a Declarator
-instance Process (CDeclarator a) a (SC.Declarator SC.SymId a) where
+instance Show a => Process (CDeclarator a) a (SC.Declarator SC.SymId a) where
   process cDeclr =
     case cDeclr of 
       CDeclr mIdent cDerDeclr cStr cAttr a -> do
@@ -253,7 +253,7 @@ instance Process (CDeclarator a) a (SC.Declarator SC.SymId a) where
               return $ SC.Declr (Just sym) derDeclr cStr attr a 
    
 -- | Process an Initializer
-instance Process (CInitializer a) a (SC.Initializer SC.SymId a) where
+instance Show a => Process (CInitializer a) a (SC.Initializer SC.SymId a) where
   process cInit =
     case cInit of
       CInitExpr cExpr _ -> do
@@ -274,7 +274,7 @@ instance Process (SC.CInitializerListEl a) a (SC.InitializerListEl SC.SymId a) w
 -}
 
 -- | Process the 'C Part Designator'
-instance Process (CPartDesignator a) a (SC.PartDesignator SC.SymId a) where
+instance Show a => Process (CPartDesignator a) a (SC.PartDesignator SC.SymId a) where
   process cPartDes = case cPartDes of
     CArrDesig cExpr n -> do
       expr <- process cExpr
@@ -288,7 +288,7 @@ instance Process (CPartDesignator a) a (SC.PartDesignator SC.SymId a) where
       return $ SC.RangeDesig expr expr' 
 
 -- | Process the 'C Derived Declarator'
-instance Process (CDerivedDeclarator a) a (SC.DerivedDeclarator SC.SymId a) where
+instance Show a => Process (CDerivedDeclarator a) a (SC.DerivedDeclarator SC.SymId a) where
   process cDerDeclr = 
     case cDerDeclr of
       CPtrDeclr cTyQual _ -> do
@@ -319,7 +319,7 @@ instance Process (CDerivedDeclarator a) a (SC.DerivedDeclarator SC.SymId a) wher
               return $ SC.FunDeclr (Right (decls,b)) attrs
 
 -- | Process the 'C Array Size' 
-instance Process (CArraySize a) a (SC.ArraySize SC.SymId a) where
+instance Show a => Process (CArraySize a) a (SC.ArraySize SC.SymId a) where
   process cArrSize =
     case cArrSize of
       CNoArrSize b -> return $ SC.NoArrSize b
@@ -328,7 +328,7 @@ instance Process (CArraySize a) a (SC.ArraySize SC.SymId a) where
         return $ SC.ArrSize b expr
 
 -- | Process the 'C Storage Specifier' 
-instance Process (CStorageSpecifier a) a SC.StorageSpecifier where
+instance Show a => Process (CStorageSpecifier a) a SC.StorageSpecifier where
   process cStorSpec = do 
     let storSpec = case cStorSpec of
           CAuto n     -> SC.Auto 
@@ -340,7 +340,7 @@ instance Process (CStorageSpecifier a) a SC.StorageSpecifier where
     return storSpec 
 
 -- | Convert the 'C Type Qualifier'
-instance Process (CTypeQualifier a) a (SC.TypeQualifier SC.SymId a) where
+instance Show a => Process (CTypeQualifier a) a (SC.TypeQualifier SC.SymId a) where
   process cTypeQualifier = 
     case cTypeQualifier of
       CConstQual n  -> return $ SC.ConstQual  
@@ -352,7 +352,7 @@ instance Process (CTypeQualifier a) a (SC.TypeQualifier SC.SymId a) where
          return $ SC.AttrQual attr 
 
 -- | Convert the 'C Type Specifier'
-instance Process (CTypeSpecifier a) a (SC.TypeSpecifier SC.SymId a) where
+instance Show a => Process (CTypeSpecifier a) a (SC.TypeSpecifier SC.SymId a) where
   process ctyspec = case ctyspec of
     CVoidType n    -> return $ SC.VoidType
     CCharType n    -> return $ SC.CharType
@@ -382,7 +382,7 @@ instance Process (CTypeSpecifier a) a (SC.TypeSpecifier SC.SymId a) where
       return $ SC.TypeOfType decl n
 
 -- | Process 'C StructureUnion'
-instance Process (CStructureUnion a) a (SC.StructureUnion SC.SymId a) where
+instance Show a => Process (CStructureUnion a) a (SC.StructureUnion SC.SymId a) where
   process cStruct =
     case cStruct of
       CStruct tag mIdent mDecl cAttr n -> do
@@ -392,7 +392,7 @@ instance Process (CStructureUnion a) a (SC.StructureUnion SC.SymId a) where
         return $ SC.Struct tag sym decl attrs n
 
 -- | Process 'C Enumeration'
-instance Process (CEnumeration a) a (SC.Enumeration SC.SymId a) where
+instance Show a => Process (CEnumeration a) a (SC.Enumeration SC.SymId a) where
   process (CEnum mIdent mAuxPair lCAttr n) = do
     mSym <- process mIdent
     auxPair <- process mAuxPair
@@ -400,7 +400,7 @@ instance Process (CEnumeration a) a (SC.Enumeration SC.SymId a) where
     return $ SC.Enum mSym auxPair lAttr n
  
 -- | Process 'C Attribute'
-instance Process (CAttribute a) a (SC.Attribute SC.SymId a) where
+instance Show a => Process (CAttribute a) a (SC.Attribute SC.SymId a) where
   process cAttribute =
     case cAttribute of
       CAttr ident lCExpr n -> do
@@ -409,7 +409,7 @@ instance Process (CAttribute a) a (SC.Attribute SC.SymId a) where
         return $ SC.Attr sym lExpr 
 
 -- | Convert the 'C Expression'
-instance Process (CExpression a) a (SC.Expression SC.SymId a) where
+instance Show a => Process (CExpression a) a (SC.Expression SC.SymId a) where
   process cExpr = case cExpr of
      CAlignofExpr cExpr n -> do 
        expr <- process cExpr
@@ -480,7 +480,7 @@ instance Process (CExpression a) a (SC.Expression SC.SymId a) where
      _ -> error ("Expression not supported")
  
 -- | Process the 'C BuiltinThing'
-instance Process (CBuiltinThing a) a (SC.BuiltinThing SC.SymId a) where
+instance Show a => Process (CBuiltinThing a) a (SC.BuiltinThing SC.SymId a) where
   process cBuiltinThing = 
     case cBuiltinThing of
       CBuiltinVaArg cExpr cDecl n -> do
@@ -497,7 +497,7 @@ instance Process (CBuiltinThing a) a (SC.BuiltinThing SC.SymId a) where
         return $ SC.BuiltinTypesCompatible decl _decl n 
 
 -- | Process the 'C Constant'
-instance Process (CConstant a) a SC.Constant where
+instance Show a => Process (CConstant a) a SC.Constant where
   process cConst = do 
     let const = case cConst of
           CIntConst cInteger n -> SC.IntConst cInteger
@@ -507,7 +507,7 @@ instance Process (CConstant a) a SC.Constant where
     return const 
 
 -- | Process the 'C Statement'
-instance Process (CStatement a) a (SC.Statement SC.SymId a) where
+instance Show a => Process (CStatement a) a (SC.Statement SC.SymId a) where
   process cStat = case cStat of
     -- Break statement
     CBreak n -> return $ SC.Break n
@@ -588,7 +588,7 @@ instance Process (CStatement a) a (SC.Statement SC.SymId a) where
       return $ SC.Compound syms compoundBlockItem n
 
 -- | Process the 'C CompoundBlockItem'
-instance Process (CCompoundBlockItem a) a (SC.CompoundBlockItem SC.SymId a) where
+instance Show a => Process (CCompoundBlockItem a) a (SC.CompoundBlockItem SC.SymId a) where
   process cCompound = case cCompound of
     -- A statement
     CBlockStmt cStat -> do
@@ -604,20 +604,36 @@ instance Process (CCompoundBlockItem a) a (SC.CompoundBlockItem SC.SymId a) wher
       return $ SC.NestedFunDef fun
 
 -- | Process a 'C Function Definition'
-instance Process (CFunctionDef a) a () where
+instance Show a => Process (CFunctionDef a) a () where
   process cFun = do
     fun <- process cFun 
     addFunction fun 
 
 -- | Process a 'C Function Definition'
-instance Process (CFunctionDef a) a (SC.FunctionDef SC.SymId a) where
-  process (CFunDef lCDeclSpec cDeclr lCDecl cStat n) = do
+instance Show a => Process (CFunctionDef a) a (SC.FunctionDef SC.SymId a) where
+  process c@(CFunDef lCDeclSpec cDeclr lCDecl cStat n) = do
     ty <- toType lCDeclSpec
     sym <- process cDeclr
-    pars <- process lCDecl
+    -- pars <- mapM  process lCDecl
     body <- process cStat
-    let fun = SC.FunDef ty sym pars body n
+    let pars = getParameters sym 
+        fun = SC.FunDef ty sym pars body n
     return fun 
+
+getParameters :: Show a => SC.Declarator ident a -> [SC.Declaration ident a]
+getParameters d = concatMap getParameter (SC.declr_type d)
+ where 
+  getParameter :: Show a => SC.DerivedDeclarator ident a -> [SC.Declaration ident a]
+  getParameter ddecl = case ddecl of
+    SC.FunDeclr (Right (decls,_)) _ -> decls
+    _ -> [] 
+
+showfndef :: Show a => CFunctionDef a -> String
+showfndef (CFunDef spec decl ldecls body _) =
+      "Function definition\n"
+   ++ "Declaration Specifier: " ++ show spec ++ "\n"
+   ++ "Declarator: " ++ show decl ++ "\n"
+   ++ "Declarations: " ++ show ldecls ++ "\n"
 
 -- | Process Maybe versions
 instance (Process a n b) => Process (Maybe a) n (Maybe b) where

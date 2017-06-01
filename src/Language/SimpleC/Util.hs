@@ -100,8 +100,23 @@ toValue const = case const of
   StrConst (CString str _) -> VString str 
   BoolConst b -> VBool b
 
+const_int :: Int -> Constant
+const_int i = IntConst (CInteger (toInteger i) DecRepr (Flags 0))
+
 const_one :: Constant
-const_one = IntConst (CInteger 1 DecRepr (Flags 0))
+const_one = const_int 1 
+
+const_char :: Char -> Constant
+const_char c = CharConst (CChar c True)
+
+const_float :: Float -> Constant
+const_float f = FloatConst (CFloat $ show f) 
+
+const_string :: String -> Constant
+const_string s = StrConst (CString s True)
+
+const_bool :: Bool -> Constant
+const_bool b = BoolConst b
 
 -- Operations over Value
 arith_int_op :: (Int -> Int -> Int) -> Value -> Value -> Value
@@ -229,3 +244,25 @@ get_expr_id e = case e of
   Var i -> i
   Unary _ expr -> get_expr_id expr
   _ -> error "get_expr_id: not supported" 
+
+assign_param :: Declaration ident a -> Expression ident a -> Declaration ident a
+assign_param decl expr = case decl of 
+  Decl ty e@DeclElem{..} ->  
+    let initial = case initializer of
+          Nothing -> Just $ InitExpr expr 
+          Just i  -> error "assign_param: Initializer is not Nothing" 
+        ne = e { initializer = initial }
+    in Decl ty ne
+  TypeDecl ty -> error "assign_param: TypeDecl" 
+
+valueToConst :: Value -> Constant
+valueToConst v = case v of 
+ VInt    k -> const_int k 
+ VFloat  k -> const_float k
+ VBool   k -> const_bool k
+ VChar   k -> const_char k
+ VString k -> const_string k
+ _ -> error "valueToConst: missing conversion"
+  
+valueToExpr :: Value -> Expression ident a
+valueToExpr val = Const $ valueToConst val 

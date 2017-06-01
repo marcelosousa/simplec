@@ -34,12 +34,14 @@ parseFile cOpt f  = do
 extract :: String -> FilePath -> IO (FrontEnd () st)
 extract cOpt f = do 
   ctu <- parseFile cOpt f
+  print $ pretty ctu
   let s_ctu     = fmap (\_ -> ()) ctu -- remove the nodes
       proc_st   = processor s_ctu     -- simplify the AST
       ast       = code proc_st        -- get the new AST
       sym_table = syms proc_st        -- get the symbol table
       cfgs      = computeGraphs ast   -- compute the cfgs
- --  print $ s_ctu 
+  -- print $ pretty s_ctu
+  -- print $  proc_st 
   return $ FrontEnd ast cfgs sym_table 
 
 test_flow f = do 

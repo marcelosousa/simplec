@@ -346,7 +346,8 @@ instance Show a => Process (CTypeQualifier a) a (SC.TypeQualifier SC.SymId a) wh
       CConstQual n  -> return $ SC.ConstQual  
       CVolatQual n  -> return $ SC.VolatQual 
       CRestrQual n  -> return $ SC.RestrQual 
-      CInlineQual n -> return $ SC.InlineQual
+      -- https://github.com/marcelosousa/simplec/issues/1
+      -- CInlineQual n -> return $ SC.InlineQual
       CAttrQual cAttribute -> do
          attr <- process cAttribute
          return $ SC.AttrQual attr 

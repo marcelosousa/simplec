@@ -34,11 +34,11 @@ pp_dot_graphs graphs symt =
   let n_e_s = "digraph program {" 
       n_x_s = "}"
       tab = "" -- show_symt_dot symt
-      prog_s = M.fold pp_dot_graph "" graphs
+      prog_s = M.foldr pp_dot_graph "" graphs
   in n_e_s ++ "\n" ++ tab ++ prog_s ++ n_x_s
   where
 pp_dot_graph gr@Graph{..} rest =
-  let g = M.foldWithKey (pp_dot_edges edge_table) "" graph
+  let g = M.foldrWithKey (pp_dot_edges edge_table) "" graph
   in g ++ "\n" ++ rest
 pp_dot_edges table pre succs rest =
   let succs' = foldr  (pp_dot_edge table pre) "" succs 

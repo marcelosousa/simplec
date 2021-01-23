@@ -24,7 +24,7 @@ sep = "-----------------------------------\n"
 show_symt :: Map SymId Symbol -> String 
 show_symt tab =
   let header = "Symbol Table\n" ++ sep ++ "SymId  | Symbol\n" ++ sep
-      tab_s =  M.foldWithKey (\k s r -> 
+      tab_s =  M.foldrWithKey (\k s r -> 
         show k ++ " | " ++ show s ++ "\n" ++ r) "" tab
   in header ++ tab_s
 
